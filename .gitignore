@@ -1,0 +1,3 @@
+*.bak
+*.backup
+.moonraker.conf.bkp
