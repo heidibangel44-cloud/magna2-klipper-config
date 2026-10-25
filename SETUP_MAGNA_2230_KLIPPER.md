@@ -339,6 +339,19 @@ Fuentes: [Klipper src/](https://github.com/Klipper3d/klipper/tree/master/src),
 [issue #199](https://github.com/Klipper3d/klipper/issues/199),
 [Discourse: why ESP32 not compatible](https://klipper.discourse.group/t/why-is-klipper-not-compatible-with-esp32/12231)
 
+### Comparación final ESP32 vs Raspberry Pi Pico (2026-10-25)
+
+| | Para medir vibraciones (Input Shaper) | Para automatización independiente (fuera de Klipper) |
+|---|---|---|
+| **Raspberry Pi Pico** | **Sí, es la opción correcta.** Soporte oficial de Klipper, USB directo, firmware maduro, es literalmente lo que la documentación oficial recomienda para el ADXL345. | No tiene sentido para esto - es un microcontrolador sin WiFi, pensado para ser un MCU de Klipper, no para automatizaciones independientes. |
+| **ESP32** | **No.** Ya investigado y confirmado: no hay soporte oficial, solo forks marcados por sus propios autores como "no aptos para producción". Usarlo para algo que necesita muestreo de hasta 3200Hz con jitter mínimo (como mide el acelerómetro) es justamente donde más se nota la falta de timing determinista de FreeRTOS/ESP-IDF. | **Ahí sí tiene sentido real**, pero como dispositivo TOTALMENTE separado de Klipper, no como su MCU. El ESP32 es un microcontrolador WiFi capaz, bueno para cosas que NO necesitan sincronización de reloj con los steppers: por ejemplo, un enchufe/relé inteligente para cortar la alimentación de la impresora a distancia, una cámara de monitoreo de impresión, un sensor ambiental (temperatura/humedad del cuarto) que reporte por MQTT/HTTP. Nada de esto se comunica con Klipper como MCU - sería un proyecto aparte, opcionalmente leído por Moonraker/Mainsail como un servicio externo si se quisiera integrar visualmente. |
+
+**Conclusión:** no se recomienda comprar un ESP32 ahora - no hay una necesidad concreta
+identificada para ese rol de automatización independiente en este proyecto (no se pidió
+cámara, ni enchufe remoto, ni sensores ambientales). Si en el futuro aparece una de esas
+necesidades puntuales, ahí sí un ESP32 barato (~5 USD) sería una compra razonable - pero
+no antes de tener ese caso de uso real. Para vibraciones, la única opción es el Pico.
+
 ## Nota técnica: Input Shaper y acelerómetro (investigado 2026-10-25, para el futuro)
 
 El Input Shaper de Klipper usa datos de un **acelerómetro**, conectado como "MCU
@@ -444,6 +457,24 @@ después de instalar - no es necesario parchear el instalador, alcanza con corre
 3 líneas en `plr.cfg`. **No instalado todavía** - instalar software nuevo de un repo
 externo es una acción más grande que ajustar configs ya presentes, se deja preparado
 para decidir conscientemente, no se instala solo.
+
+### Decisión recomendada (2026-10-25): diferir, no instalar todavía
+
+**Recomendación: esperar, no instalar ahora.** Razón concreta: YUMI_PLR protege contra
+un corte de luz, pero el problema que está interrumpiendo impresiones en este momento
+no es la luz - es la desconexión USB intermitente (24 eventos registrados hoy, causa
+todavía sin confirmar). Si una impresión se corta por USB mientras el eje Z sigue
+energizado y en su lugar (que es lo más probable en una desconexión de comunicación,
+no de corte eléctrico), YUMI_PLR debería poder ayudar en teoría - pero instalar y
+confiar en un sistema de recuperación ANTES de resolver la causa que más seguido está
+arruinando las impresiones es resolver el síntoma secundario antes que el primario.
+Además, agrega superficie nueva (shell commands, variables guardadas, G-code adicional
+en cada layer-change) a un sistema que todavía se está estabilizando.
+
+**Cuándo tendría sentido instalarlo:** una vez que la inestabilidad de USB esté
+resuelta o mitigada (hub alimentado probado, por ejemplo), y si en ese momento sigue
+habiendo cortes de luz reales (de la pared, no de comunicación) que justifiquen la
+protección. No es una tarea urgente ni bloqueante para nada más del plan.
 
 ## Nota técnica: plan de hardware priorizado (2026-10-25)
 

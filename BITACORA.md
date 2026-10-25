@@ -283,3 +283,30 @@ ventilador gire. Lo que SÍ se confirmó: que el comportamiento de "avisar que f
 hardware en vez de arrancar un movimiento de medición incompatible" funciona
 correctamente - que es exactamente lo que tenía que pasar mientras no haya sonda, ni
 más ni menos. No se declara la cama nivelada ni la sonda reemplazada por ningún motivo.
+
+## 2026-10-25 (continuación) — Segunda ronda de autonomía: USB corregido con evidencia, macros nuevas, decisiones documentadas
+
+- **USB, hallazgo importante que corrige lo dicho antes:** búsqueda exhaustiva de
+  `suspend`/`wakeup` en los 24 eventos de desconexión de este arranque: **cero
+  resultados**. El patrón real es siempre `urb stopped: -32` + desconexión dura +
+  re-enumeración como dispositivo nuevo - no es la firma de una suspensión por
+  software. `power/control` ya está en `on` (autosuspend inactivo) y las caídas
+  siguen igual. **La regla udev preparada probablemente no resuelve esto** - se deja
+  igual (gratis, no hace daño) pero sin prometer que arregle nada.
+- Racha estable más larga medida en vivo: 36m49s (19:35:22-20:12:11), se rompió con
+  la misma firma de siempre. Total del arranque: 24 desconexiones.
+- Montado `tools/usb_monitor_pasivo.sh` corriendo en background (PID activo al cierre
+  de esta entrada), logueando cada 15s de forma continua - no son solo chequeos
+  puntuales.
+- Agregadas y **probadas con ejecución real** (no solo carga): `LOAD_FILAMENT_T0/T1`,
+  `UNLOAD_FILAMENT_T0/T1` (precondiciones de herramienta activa + hotend caliente,
+  ambas ramas de error confirmadas), `ESTADO_CALIBRACION` (reporte de solo lectura,
+  valores coherentes).
+- **ESP32 vs Pico, comparación cerrada:** Pico es la única opción válida para medir
+  vibraciones (ya sabido). ESP32 SÍ tendría un rol real pero como dispositivo
+  independiente, fuera de Klipper (automatizaciones, cámara, enchufe remoto) - sin
+  necesidad concreta identificada todavía, no se recomienda comprar uno ahora.
+- **YUMI_PLR: decisión documentada de diferir.** No instalar hasta resolver la
+  inestabilidad de USB primero - instalar protección contra corte de luz mientras la
+  causa real de las interrupciones (USB) sigue sin resolver es priorizar el síntoma
+  secundario.
