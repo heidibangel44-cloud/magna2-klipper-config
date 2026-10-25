@@ -154,6 +154,34 @@ repetir movimientos riesgosos a ciegas, no imprimir ni calentar sin supervisión
 | Termistor extruder (`PC1`) | sí | sí | sí | parcial | Lectura ambiente coherente (~23°C). Falta validar en caliente con protección térmica |
 | Termistor cama (`PC0`) | sí | sí | sí | parcial | idem, ~22°C ambiente |
 
+### Revisión completa del repo de referencia FacuM/hellbot-wanhao-300-dual-klipper
+
+- **Hallazgo importante, ya corregido en nuestro `_FORM_TIP`:** probaron en la práctica
+  que retraer 80-90mm dejaba un hilo colgando que atascaba el splitter en Y - subieron a
+  ~150mm. Nuestro `_FORM_TIP` tenía 80mm de default (mismo número que ya usábamos en
+  T0/T1 para el swap rápido, que SÍ está verificado para eso, pero no necesariamente para
+  un ciclo de forming+park prolongado). Se agregó una advertencia explícita en el
+  comentario del macro - no conectarlo a T0/T1 sin probar con cuidado si queda hilo
+  colgando.
+- No usan PB0 para nada (ni fan, ni heater) - su repo no resuelve esa pregunta, queda
+  como lo encontramos: confirmado por código fuente de Marlin que el pin existe, no
+  confirmado por ningún uso real de otro usuario.
+- Tienen `input_shaper` medido a mano (`shaper_type: mzv`, freq_x 22.0, freq_y 19.0) -
+  son valores de SU máquina (300mm), no transferibles, pero el método (torre de
+  resonancia + TUNING_TOWER de SHAPER_FREQ_Y) es una referencia válida para cuando
+  tengamos el acelerómetro.
+- Fijan `pressure_advance: 0.66` en `[extruder]`, pero sus macros T0/T1 lo resetean a 0
+  en cada cambio de herramienta sin explicación clara en el repo - **no copiar ese
+  comportamiento sin entender por qué lo hacen.**
+- No tienen `[firmware_retraction]` ni `[probe]`/`[bltouch]` en ningún archivo - manejan
+  todo a mano con macros, y no parecen tener nivelación automática tampoco (otro dato
+  que sugiere que esta familia de impresoras tiene esta limitación con frecuencia, no
+  solo la nuestra - sin confirmar más allá de este único caso).
+- README: confirma que esta placa se cuelga en "Updating 100%" al flashear (normal,
+  apagar y sacar la SD) y queda en "Booting..." esperando a Klipper (normal) - coincide
+  con lo que ya sabíamos. Avisa explícitamente NO correr `sign_mks_robin_nano.sh` en
+  esta placa.
+
 ---
 
 ## Tareas activas (no repetir investigación ya hecha arriba)
