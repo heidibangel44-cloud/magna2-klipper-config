@@ -180,22 +180,67 @@ gcode:
     SET_PRESSURE_ADVANCE EXTRUDER=extruder1 ADVANCE=0.05   # valor medido para T1
 ```
 
-## Nota técnica: Input Shaper y acelerómetro (para el futuro)
+## Nota técnica: ¿ESP32 como MCU adicional? (investigado 2026-10-25 - NO recomendado)
 
-El Input Shaper de Klipper usa datos de un **acelerómetro** (típicamente ADXL345),
-conectado como "MCU adicional" corriendo su propio firmware Klipper — puede ser un
-Arduino o una Raspberry Pi Pico dedicados a esto, no reemplazan al MCU principal
-(Robin Nano), se suman. El giroscopio (si se llegara a agregar) **no** es parte del
-flujo estándar de Input Shaper de Klipper — sería una integración no estándar/DIY para
-otro propósito (orientación, vibración), no algo documentado oficialmente.
+Se investigó si un ESP32 podía usarse como MCU adicional de Klipper (para acelerómetro,
+sensores extra, etc). **Conclusión: no está soportado oficialmente y no conviene.**
+
+- El código fuente oficial de Klipper (`Klipper3d/klipper/src/`) solo tiene arquitecturas
+  para `avr, atsam, atsamd, stm32, lpc176x, hc32f460, pru, ar100, rp2040, linux` - **no
+  hay `esp32`**. El pedido de soporte lleva abierto desde 2018
+  ([issue #199](https://github.com/Klipper3d/klipper/issues/199)) sin resolverse, porque
+  el ESP32 corre FreeRTOS/ESP-IDF, que choca con el timing determinista que Klipper
+  necesita para steppers y sensores.
+- Existen forks NO oficiales (`nikhil-robinson/klipper_esp32`, `fermino/klipper-esp32-port`)
+  que ellos mismos advierten: "no soportado por el proyecto", "no estable", "bajo tu
+  propio riesgo". No es apto para esto.
+- No hay ninguna integración ESP32 documentada específicamente para MKS Robin Nano (la
+  "MKS TinyBee" es una placa DISTINTA que usa ESP32 como MCU principal, no como add-on,
+  y tampoco tiene buen soporte real).
+
+**Para todo lo que se quería usar el ESP32 (acelerómetro, sensores extra), la opción
+correcta es la Raspberry Pi Pico** - ver sección siguiente.
+
+Fuentes: [Klipper src/](https://github.com/Klipper3d/klipper/tree/master/src),
+[issue #199](https://github.com/Klipper3d/klipper/issues/199),
+[Discourse: why ESP32 not compatible](https://klipper.discourse.group/t/why-is-klipper-not-compatible-with-esp32/12231)
+
+## Nota técnica: Input Shaper y acelerómetro (investigado 2026-10-25, para el futuro)
+
+El Input Shaper de Klipper usa datos de un **acelerómetro**, conectado como "MCU
+adicional" corriendo su propio firmware Klipper (NO reemplaza al MCU principal Robin
+Nano, se suma). El giroscopio **no** es parte del flujo estándar de Input Shaper - sería
+una integración no estándar/DIY para otro propósito, no algo documentado oficialmente.
+
+**Acelerómetros realmente soportados por Klipper** (`Config_Reference.html`): ADXL345
+(el más probado por la comunidad), familia MPU-9250/9255/6515/6050/6500, ICM20948,
+LIS2DW, LIS3DH, BMI160.
+
+**MCU adicional recomendada: Raspberry Pi Pico** (no ESP32, ver nota arriba). El ADXL345/
+LIS2DW/LIS3DH/BMI160 van por SPI al Pico (USB al host); los de la familia MPU/ICM van
+por I2C. Costo orientativo de referencia comunitaria (no precio de tienda local):
+breakout ADXL345 ≈ 3-8 USD, Pico ≈ 4-5 USD.
+
+**Montaje:** el sensor va en el cabezal (carro X) para medir resonancias de X; para Y, en
+una impresora tipo "bed-slinger" (cama que se mueve, como esta Magna 2) se mueve el MISMO
+sensor temporalmente a la cama - no hace falta instalarlo por duplicado.
+
+**Carga en este host débil:** el cálculo pesado (FFT) corre en el HOST, no en el Pico -
+el Pico solo transmite datos crudos por USB durante el test. Instalar numpy/scipy en un
+netbook viejo puede tardar 10-20 minutos y pedir swap, según la doc oficial. El análisis
+en sí no es instantáneo en hardware débil - tenerlo en cuenta al planificar la sesión.
 
 Pasos cuando se consiga el hardware:
-1. Conseguir un ADXL345 (u otro acelerómetro soportado por Klipper) + un Arduino/Pico.
-2. Compilar Klipper para ese microcontrolador como "MCU adicional" (`[mcu rpi]` o
-   similar, con su propio `serial:`).
-3. Montar el acelerómetro físicamente en el cabezal (X) y opcionalmente en la cama (Y).
-4. Correr `SHAPER_CALIBRATE` — esto mide las resonancias reales de la máquina y genera
-   los valores de `[input_shaper]` automáticamente. No copiar valores de otra impresora.
+1. Conseguir un ADXL345 + una Raspberry Pi Pico.
+2. Configurar `[mcu pico]` + `[adxl345]` + `[resonance_tester]` en printer.cfg.
+3. Montar el acelerómetro en el cabezal (X), y moverlo a la cama para medir Y.
+4. Correr `MEASURE_AXES_NOISE`, después `SHAPER_CALIBRATE` - genera CSV y gráficos con
+   el shaper/frecuencia recomendados. Los valores se agregan a mano a `[input_shaper]`.
+   No copiar valores de otra impresora.
+
+Fuentes: [Measuring Resonances](https://www.klipper3d.org/Measuring_Resonances.html),
+[Config Reference](https://www.klipper3d.org/Config_Reference.html),
+[Pico + ADXL345 portátil](https://klipper.discourse.group/t/raspberry-pi-pico-adxl345-portable-resonance-measurement/1757)
 
 ## Comandos útiles
 
