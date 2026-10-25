@@ -159,6 +159,22 @@ que el usuario corra, con su contraseña de administrador:
 cd ~/printer_data/config && sudo cp tools/99-usb-no-autosuspend-ch340.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
+### Tabla de hipótesis (actualizada 2026-10-25, sesión de monitoreo pasivo)
+
+| Hipótesis | Evidencia a favor | Evidencia en contra | Prueba realizada | Resultado |
+|---|---|---|---|---|
+| Cable USB defectuoso | — | Desconexiones iguales con cable nuevo | Usuario cambió el cable | Descartada |
+| Puerto USB específico de la netbook | — | Desconexiones iguales con puerto nuevo (`2-1.1` → `2-1.2`) | Usuario cambió el puerto | Descartada |
+| Jumper de alimentación USB mal puesto | Síntoma coincide con lo documentado para la V1.2 | Esquemático oficial del chip F407 (el nuestro) no tiene jumper, es diodo-OR pasivo | Investigación de esquemático oficial | Debilitada, no confirmada ni descartada al 100% (placa no estándar) |
+| Autosuspend USB de Linux | Causa conocida en laptops | Regla udev para desactivarlo preparada pero **todavía no instalada** - no se puede confirmar ni descartar hasta correrla | Ninguna todavía | Pendiente de prueba real |
+| Las desconexiones las dispara el USO activo (G28, comandos) | — | **5 ciclos de G28 consecutivos (19:39-19:43) con 0 desconexiones nuevas**, mientras que las caídas pasaron en momentos de inactividad (19:20, 19:35) | Correlación de timestamps `journalctl -k` vs `gcode_store` | Descartada - no correlaciona con actividad |
+| CH340/controlador EHCI de la netbook, combinación débil de fábrica | Precedente real documentado en la comunidad (host débil + CH340) | — | Ninguna prueba discriminante propia todavía (necesitaría probar la placa en otra computadora) | Hipótesis más fuerte actual, sin confirmar del todo |
+| Alimentación general de la placa (no el jumper, sino la fuente/cable de 12-24V) | Podría explicar resets intermitentes del MCU | No se vio ningún patrón de reset de MCU coincidente con picos de consumo conocidos (calentamiento, movimiento) | Ninguna todavía | Sin evaluar |
+
+**Dato de estabilidad real de esta sesión:** entre las 19:35:22 y las 20:08:19 (**33 minutos**), cero desconexiones nuevas, atravesando varios restarts de Klipper y pruebas de macros. No alcanza para declarar el problema resuelto (los eventos anteriores también tuvieron huecos de 10-15 minutos entre caídas), pero es la ventana más larga limpia registrada hasta ahora.
+
+**Siguiente prueba discriminante pendiente:** correr la regla udev (arriba) y medir si cambia la frecuencia de desconexiones en una ventana de observación larga (horas, no minutos) - eso sí distinguiría "es autosuspend" de "no es autosuspend, es otra cosa".
+
 ## Nota técnica: doble color / purga (2026-10-25)
 
 Esta impresora es "2 motores -> 1 hotend" (NO es un IDEX de dos boquillas, y NO es el
@@ -179,6 +195,49 @@ sensor). Dos consecuencias concretas para copiar ideas de Bambu:
   es para impresoras con múltiples cabezales (Type 2) - NO aplica aquí, dejarlo
   desactivado.
   Fuente: [OrcaSlicer Wiki - Prime Tower](https://www.orcaslicer.com/wiki/print_settings/multimaterial/multimaterial_settings_prime_tower)
+
+### Distancia de `_FORM_TIP` y calibración completa del extrusor dual (2026-10-25)
+
+**A qué corresponde el "~150mm" del repo de referencia:** en `FacuM/hellbot-wanhao-300-dual-klipper`
+probaron en la práctica que retraer 80-90mm dejaba un hilo colgando que atascaba el
+splitter en Y, y subieron a ~150mm - esa distancia es la que recorre el filamento desde
+la punta ya formada (fuera del hotend) hasta un punto de "aparcado" seguro, lejos del
+punto de unión de los dos caminos. **No es una distancia universal**: depende de la
+geometría exacta de SU splitter/heatbreak, que no es necesariamente igual al nuestro,
+aunque la placa y el pinout de `extruder1` coincidan. Nuestro 80mm actual en T0/T1 está
+verificado para el swap rápido (confirmado por el usuario con medición física directa
+del punto de unión real de esta máquina) - pero eso es distinto de un ciclo de
+"formar punta + aparcar por un rato" como hace `_FORM_TIP`, que todavía no se probó.
+**No se sube el valor a 150mm a ciegas** - la `distance` de `_FORM_TIP` sigue en 80mm con
+la advertencia ya agregada, pendiente de la prueba real con hotend caliente.
+
+### Guía completa de calibración del extrusor dual (preparada, pendiente de ejecución física)
+
+Procedimiento recomendado, en orden, la próxima vez que haya supervisión con hotend
+caliente disponible:
+
+1. **Sentido de giro de cada motor** - ya verificado en fases anteriores del proyecto
+   (sin necesidad de repetir). Ver BITACORA.md.
+2. **Pasos/distancia de extrusión (`rotation_distance`)** - ya medido y calibrado por
+   separado para T0 (7.474) y T1 (7.848). No recalibrar sin un motivo concreto (ej. si
+   se cambia el motor o el engranaje).
+3. **Flujo real vs temperatura** - pendiente: prueba de caudal máximo (aumentar
+   `M106`/velocidad de extrusión hasta que se note "clicking" del motor por salto de
+   pasos = se llegó al límite de flujo del hotend a esa temperatura). Determina
+   `max_extrude_cross_section`/velocidad de impresión realista.
+4. **Retracción y recuperación** - `[firmware_retraction]` ya tiene valores de partida
+   (`retract_length: 3`), falta la torre de retracción real para afinarlo.
+5. **Pressure Advance** - procedimiento ya documentado arriba, por separado para T0 y
+   T1 (son motores distintos).
+6. **Carga/descarga y selección T0/T1** - macros ya existen y están auditadas (orden de
+   retracción/sync/purga correcto, sin riesgo de movimiento simultáneo - ver
+   BITACORA.md, auditoría de línea por línea 2026-10-25).
+7. **`_FORM_TIP` para prevenir atascos en el splitter** - preparado, con la advertencia
+   de distancia de arriba, pendiente de probar con hotend caliente antes de conectarlo
+   al flujo real de T0/T1.
+8. **Sensores de filamento** - confirmados presentes y leyendo coherente (sin
+   filamento = `filament_detected: false`), falta probar que detecten correctamente
+   AL CARGAR filamento real (prueba física simple, sin riesgo).
 
 ## Nota técnica: Pressure Advance (2026-10-25)
 
@@ -277,6 +336,105 @@ Pasos cuando se consiga el hardware:
 Fuentes: [Measuring Resonances](https://www.klipper3d.org/Measuring_Resonances.html),
 [Config Reference](https://www.klipper3d.org/Config_Reference.html),
 [Pico + ADXL345 portátil](https://klipper.discourse.group/t/raspberry-pi-pico-adxl345-portable-resonance-measurement/1757)
+
+**Preparado 2026-10-25:** `input-shaper-future.cfg` en la raíz del repo - config
+opcional con placeholders, NO incluida en printer.cfg todavía (para que la impresora
+siga funcionando sin el Pico). Tiene el procedimiento completo de puesta en marcha
+escrito adentro, paso a paso.
+
+## Nota técnica: arquitectura de sonda futura (preparada 2026-10-25)
+
+Investigadas 4 opciones reales (BLTouch genuino, sonda mecánica desmontable tipo
+Klicky/Euclid, sonda inductiva genérica, eddy current tipo Cartographer/Beacon) con sus
+diferencias de cableado, código (`[bltouch]` vs `[probe]` vs `[probe_eddy_current]`+MCU
+propio) y confiabilidad relativa. Detalle completo y fuentes en BITACORA.md.
+
+**Preparado:** `probe-future.cfg` en la raíz del repo - config opcional con placeholders
+para `[bltouch]`/`[safe_z_home]`/`[bed_mesh]`/`[screws_tilt_adjust]`, NO incluida en
+printer.cfg todavía (mismo pin PA11 que el switch mecánico activo - no pueden coexistir
+en la config activa). Tiene el procedimiento completo de puesta en marcha escrito
+adentro, paso a paso, incluyendo el cambio exacto que hay que hacer en `[stepper_z]` y
+cómo calcular `mesh_min`/`mesh_max` una vez medido el offset real de la sonda que se
+compre. Ningún offset ni coordenada está inventado - todos quedan como placeholder.
+
+## Nota técnica: estrategia de velocidad y calidad (2026-10-25)
+
+**Números reales del fabricante (no inventados), fuente:**
+[Hellbot - análisis comparativo Magna 2 230/Dual](https://blog.hellbot.xyz/analisis-comparativo-magna-2-230-magna-1-y-magna-dual/):
+velocidad máxima documentada 80mm/s, **velocidad recomendada 50mm/s**, altura de capa
+0.1-0.4mm.
+
+**Importante, para no confundir dos cosas distintas:** `max_velocity: 250` en
+`[printer]` de nuestro printer.cfg es un **techo de seguridad del firmware** (Klipper
+nunca lo va a superar, pase lo que pase), NO una velocidad de impresión real. La
+velocidad real la define el LAMINADOR (OrcaSlicer/Cura), muy por debajo de ese techo.
+No hay conflicto entre el techo de 250mm/s y la recomendación de fábrica de 50mm/s -
+simplemente hay mucho margen entre el límite de seguridad y la velocidad real de
+impresión, que es como debe ser.
+
+**Estrategia recomendada, en orden, antes de subir velocidades:**
+1. Primera impresión de prueba a velocidad conservadora (50mm/s, el valor recomendado
+   de fábrica) una vez resuelta la estabilidad de USB.
+2. Pressure Advance calibrado (afecta mucho más a la calidad en esquinas/puentes que la
+   velocidad en sí).
+3. Retracción (`[firmware_retraction]`) calibrada.
+4. Solo después de tener una impresión limpia y repetible a 50mm/s, subir
+   gradualmente hacia el máximo de fábrica (80mm/s), comparando calidad en cada escalón
+   - no saltar directo a un valor alto sin comparar.
+5. Input Shaper (cuando haya acelerómetro) permite velocidades/aceleraciones más altas
+   sin ringing - hasta entonces, no forzar aceleraciones altas a ciegas.
+
+**No se declara ninguna velocidad "soportada" sin esa prueba escalonada real.**
+
+## Nota técnica: YUMI_PLR - recuperación ante corte de energía (investigado 2026-10-25)
+
+Repo real confirmado: [Yumi-Lab/YUMI_PLR](https://github.com/Yumi-Lab/YUMI_PLR). Guarda
+el archivo/altura Z actual (`SAVE_VARIABLE` + macro `LOG_Z` llamada desde el "before
+layer change" del laminador) y expone `RESUME_INTERRUPTED` en Mainsail tras un corte.
+**Limitación del propio plugin: solo funciona si el eje Z no se movió durante el
+corte** (si la cama/cabezal se desplazó mecánicamente sin energía, la recuperación no
+es confiable).
+
+**Precisión sobre el problema del usuario "pi" (investigado a fondo, no es exactamente
+lo que se pensaba):** el instalador (`install.sh`) en realidad SÍ detecta el usuario
+real del sistema correctamente (por `$USER`/`$SUDO_USER`), no está hardcodeado a "pi"
+como se creía. El problema real está en el archivo `plr.cfg` que ese instalador copia
+tal cual, sin reemplazar rutas: tiene 3 líneas con `/home/pi/...` escritas a mano
+(`clear_plr.sh`, `plr.sh`, `variables.cfg`). Hay que editarlas a mano a `/home/facundo/...`
+después de instalar - no es necesario parchear el instalador, alcanza con corregir esas
+3 líneas en `plr.cfg`. **No instalado todavía** - instalar software nuevo de un repo
+externo es una acción más grande que ajustar configs ya presentes, se deja preparado
+para decidir conscientemente, no se instala solo.
+
+## Nota técnica: plan de hardware priorizado (2026-10-25)
+
+**A. Se puede completar ahora sin comprar nada:**
+- Afinar Pressure Advance, retracción, velocidad (una vez resuelta la estabilidad USB).
+- Probar `_FORM_TIP` y conectarlo a T0/T1 si da buen resultado.
+- Instalar la regla udev del USB (gratis, ya preparada).
+- Instalar YUMI_PLR (gratis, requiere editar 3 líneas de un archivo tras clonar el repo).
+
+**B. Reparación/verificación de hardware existente:**
+- Sonda "3D Touch": diagnóstico de hardware confirmado roto - reparar (abrir y revisar
+  cable/sensor interno) o reemplazar.
+- Inspección visual rápida de la zona del conector USB en la placa (gratis, para
+  descartar del todo la hipótesis del jumper).
+
+**C. Componentes opcionales con mejora real, por prioridad:**
+1. **Hub USB con alimentación propia** (~10-15 USD) - mitigación más prometedora para
+   la inestabilidad de comunicación, costo bajo.
+2. **BLTouch genuino** (reemplazo directo del clon roto, mismo conector) - para
+   recuperar nivelación automática real. Costo variable según proveedor, no se
+   respalda un precio específico sin cotizar.
+3. **Raspberry Pi Pico + ADXL345** (~8-13 USD en conjunto, referencia comunitaria) -
+   para Input Shaper, mejora velocidad sin sacrificar calidad.
+4. **Sonda mecánica desmontable (Klicky/Euclid)** - alternativa a BLTouch si se busca
+   evitar el punto de falla del solenoide, pero necesita imprimir un dock y sumar
+   macros propias - más trabajo de puesta en marcha que un BLTouch genuino.
+
+No se recomienda ESP32 para ningún rol dentro de Klipper (ya investigado y descartado).
+No se recomienda eddy current (Cartographer/Beacon) para esta máquina - mucho más caro
+y complejo de lo que esta impresora necesita.
 
 ## Comandos útiles
 

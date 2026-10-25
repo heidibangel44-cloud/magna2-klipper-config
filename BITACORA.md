@@ -194,6 +194,50 @@ repetir movimientos riesgosos a ciegas, no imprimir ni calentar sin supervisión
   con lo que ya sabíamos. Avisa explícitamente NO correr `sign_mks_robin_nano.sh` en
   esta placa.
 
+## 2026-10-25 (continuación, MISIÓN MAESTRA) — Fases 1-10, 33 min de USB estable, nuevas herramientas
+
+Trabajo grande bajo autorización explícita del usuario para diagnóstico/pruebas físicas
+de rutina sin pedir confirmación en cada paso. Resumen (detalle completo con fuentes en
+`SETUP_MAGNA_2230_KLIPPER.md`):
+
+- **USB (Fase 1):** tabla de hipótesis armada. Cable y puerto: descartados (ya
+  probados). Jumper: debilitado por esquemático oficial. Autosuspend: **todavía no
+  probado** (regla udev preparada, no instalada - necesita sudo del usuario). Hallazgo
+  nuevo: correlación de timestamps muestra que 5 ciclos de G28 consecutivos (19:39-19:43)
+  tuvieron 0 desconexiones nuevas, mientras que las caídas pasaron en momentos de
+  inactividad - descarta que el USO activo dispare las desconexiones. Ventana más larga
+  limpia de esta sesión: 33 minutos sin caídas (19:35-20:08), sin declarar el problema
+  resuelto.
+- **Auditoría final de printer.cfg (Fase 2):** encontrado y corregido un conflicto real
+  de pines en la sección `[display]` comentada (usaba PB1/PB0, ya en uso). Limpiado un
+  comentario desactualizado en `safe_z_home`.
+- **Botones de Mainsail (Fase 3):** investigado qué es automático (las macros ya
+  aparecen solas) y qué no (paneles custom no existen en Mainsail). Agregados
+  `BED_MESH_CALIBRATE`/`SCREWS_TILT_CALCULATE` con mensaje claro en español cuando
+  falta la sonda (en vez del error críptico de Klipper), y macros nuevas `FAN_TEST` y
+  `DIAGNOSTICO_SENSORES` - **las tres probadas con ejecución real**, no solo validación
+  de sintaxis. `DIAGNOSTICO_SENSORES` tuvo un bug real de comillas en el primer intento,
+  encontrado y corregido al probarlo (no asumido).
+- **Arquitectura futura de sonda (Fase 4):** `probe-future.cfg` nuevo, separado, NO
+  incluido en printer.cfg - placeholders sin inventar offsets, con procedimiento de
+  puesta en marcha completo escrito adentro.
+- **Arquitectura futura de Input Shaper (Fase 5):** `input-shaper-future.cfg` nuevo,
+  mismo criterio - separado, no incluido, sin valores de resonancia inventados.
+- **Calibración de extrusor dual (Fase 6):** aclarado que el "~150mm" del repo de
+  referencia es específico de SU splitter, no se copia a ciegas - `_FORM_TIP` sigue en
+  80mm con advertencia, pendiente de prueba real con calor.
+- **Velocidad/calidad (Fase 7):** números reales de fábrica encontrados (Hellbot:
+  máximo 80mm/s, recomendado 50mm/s) - aclarado que esto es la velocidad de impresión
+  real (laminador), no el techo de seguridad del firmware (`max_velocity: 250`, no
+  tienen que coincidir).
+- **Auditoría del repo de referencia completa (Fase 8):** YUMI_PLR confirmado real,
+  diagnóstico de la ubicación exacta del problema de "usuario pi" corregido con más
+  precisión (son 3 líneas de `plr.cfg`, no el instalador) - NO instalado todavía
+  (instalar software nuevo de un repo externo es una decisión más grande que ajustar
+  configs ya presentes).
+- **Plan de hardware (Fase 9):** lista A/B/C armada en SETUP_MAGNA con fuentes de costo
+  orientativas, sin comprar nada.
+
 ---
 
 ## Tareas activas (no repetir investigación ya hecha arriba)
