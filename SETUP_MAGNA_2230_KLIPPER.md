@@ -90,23 +90,95 @@ el workflow de GitHub Actions todavía usa el script viejo. Falta actualizar
 
 ## Pendiente
 
-- [ ] Configurar Cura y OrcaSlicer en la otra PC del usuario (perfiles oficiales de
-      Hellbot ya entregados para Cura: PLA/ABS/PETG "Magna 2 230 Dual"; OrcaSlicer
-      necesita perfil manual con G-code flavor = Klipper)
-- [ ] Primera impresión de prueba
-- [ ] Pressure advance (necesita impresión de prueba)
+- [ ] Primera impresión de prueba estable (requiere confirmar que el USB ya no se
+      desconecta - ver "Nota técnica: estabilidad USB" abajo)
+- [ ] Pressure advance - procedimiento listo, ver nota técnica abajo (necesita impresión
+      de prueba, por separado para T0 y T1)
+- [ ] Configurar el Prime Tower en OrcaSlicer para el cambio de color - ver nota técnica
+      "Doble color / purga" abajo
 - [ ] Afinar velocidad/aceleración con Klipper (partiendo de los valores conservadores
       del fabricante: 45mm/s impresión, 30mm/s paredes)
+- [ ] Calibrar `retract_length` de `[firmware_retraction]` (agregado 2026-10-25 con
+      valor de partida conservador, falta afinar con una torre de retracción real)
 - [ ] Recuperación por corte de energía (YUMI_PLR — requiere G-code de slicer configurado
       primero, y ajustar el instalador que asume usuario `pi` en vez de `facundo`)
-- [ ] Reemplazar o reparar el sensor "3D Touch", retomar bed_mesh automático
+- [ ] Reemplazar la sonda "3D Touch" (diagnóstico de hardware confirmado roto el
+      2026-08-18, no es config) para retomar bed_mesh automático
 - [ ] Subir el `max_temp` del hotend una vez confirmada la modificación del PTFE
-- [ ] Backup remoto en GitHub (opcional, decisión del usuario)
-- [ ] Corregir el bug de `update_mks_robin.py` en el repo de GitHub
-      (`heidibangel44-cloud/magna-klipper`)
 - [ ] Input Shaper — pendiente de hardware futuro (acelerómetro ADXL345 vía Arduino/Pico
       como MCU adicional). **No hay valores de resonancia inventados acá** — se miden
       recién cuando el sensor físico esté disponible. Ver nota técnica abajo.
+
+**Ya resueltos (no repetir):** backup remoto en GitHub, bug de `update_mks_robin.py` en
+el repo de GitHub, pull-up faltante en el switch de Z, Cura/OrcaSlicer con perfiles
+básicos.
+
+## Nota técnica: estabilidad USB (hallazgo 2026-10-25)
+
+Se encontró evidencia real (`journalctl -k`) de desconexiones físicas del USB del CH340
+(reconecta solo segundos después, a veces en menos de 1 segundo) que tiran a Klipper a
+shutdown y borran el homing - esto explica buena parte de la sensación de "la altura
+cambia sola": en realidad la impresora se cayó y el usuario sigue nivelando sobre un
+estado inválido. No es (solo) un problema mecánico de Z. Pendiente: confirmar con cable/
+puerto USB distinto si el problema para. Regla udev preparada para evitar que el sistema
+suspenda ese puerto (ver sección de Acceso/Comandos).
+
+## Nota técnica: doble color / purga (2026-10-25)
+
+Esta impresora es "2 motores -> 1 hotend" (NO es un IDEX de dos boquillas, y NO es el
+sistema AMS de Bambu Lab - no hay buffer externo de filamento ni cámara de mezcla con
+sensor). Dos consecuencias concretas para copiar ideas de Bambu:
+
+- **No aplica "temperatura de standby" del extrusor inactivo** (eso es de impresoras con
+  dos boquillas separadas). Acá ambos extrusores comparten el mismo bloque calefactor -
+  investigado y descartado como mejora real para esta arquitectura.
+- **Lo que SÍ aplica y es análogo a la "purga" de Bambu:** el macro T0/T1 ya hace lo
+  correcto a nivel mecánico (retrae 80mm el que se apaga, sincroniza el nuevo motor,
+  ceba 80mm) - eso NO se toca, está medido a la distancia física real del punto de unión
+  de los dos caminos de filamento en el hotend. Lo que falta es la purga VISIBLE que
+  elimina la mezcla de color en la pieza real, y eso se configura en el laminador, no en
+  la placa: **Prime Tower / Wipe Tower de OrcaSlicer** (`Impresora -> Multimaterial ->
+  Prime Tower`). Activarlo, empezar con `Prime Volume` en 45mm³ (default) y subir si
+  sigue saliendo mezcla de color, bajar si sobra material. `Tool Change on Wipe Tower`
+  es para impresoras con múltiples cabezales (Type 2) - NO aplica aquí, dejarlo
+  desactivado.
+  Fuente: [OrcaSlicer Wiki - Prime Tower](https://www.orcaslicer.com/wiki/print_settings/multimaterial/multimaterial_settings_prime_tower)
+
+## Nota técnica: Pressure Advance (2026-10-25)
+
+Klipper no tiene un macro de auto-calibración de PA (a diferencia de `PID_CALIBRATE`).
+El procedimiento es: imprimir un patrón de prueba (esquinas/línea recta a velocidad
+variable) y ajustar a ojo buscando que desaparezca el "bulto" en esquinas sin que
+aparezca hueco. Comando para probar un valor en caliente, sin reiniciar:
+
+```
+SET_PRESSURE_ADVANCE EXTRUDER=extruder ADVANCE=0.05   # para T0
+SET_PRESSURE_ADVANCE EXTRUDER=extruder1 ADVANCE=0.05  # para T1
+```
+
+**Importante para esta impresora en particular:** T0 y T1 son motores físicamente
+distintos (ya se midió que tienen `rotation_distance` distinto: 7.474 vs 7.848) aunque
+comparten hotend - probablemente necesiten un `ADVANCE` distinto cada uno. No asumir que
+calibrar uno sirve para el otro.
+
+**Ojo con cómo se guarda:** `[extruder_stepper]` (T1) NO acepta `pressure_advance` como
+opción de config fija - esa opción solo existe en `[extruder]` (T0). Para T0 sí se puede
+guardar directo:
+
+```
+[extruder]
+pressure_advance: 0.05        # agregar la línea con el valor medido para T0
+```
+
+Para T1, como no hay dónde guardarlo de forma fija, hay que reaplicarlo cada vez que
+Klipper arranca, con un `[delayed_gcode]`:
+
+```
+[delayed_gcode SET_PA_EXTRUDER1]
+initial_duration: 1
+gcode:
+    SET_PRESSURE_ADVANCE EXTRUDER=extruder1 ADVANCE=0.05   # valor medido para T1
+```
 
 ## Nota técnica: Input Shaper y acelerómetro (para el futuro)
 
