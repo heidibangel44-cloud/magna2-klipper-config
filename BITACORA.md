@@ -263,3 +263,23 @@ para el detalle completo. Resumen de lo que sigue abierto al cierre de esta entr
 - Pressure Advance, Input Shaper (bloqueado en hardware), ventilador auxiliar, doble
   color: en investigación/preparación de software, sin prueba física de calor/extrusión
   (requiere supervisión, no se hace sin el usuario presente).
+
+## 2026-10-25 (continuación) — Aclaración explícita: qué probaron realmente los macros de hoy
+
+El usuario pidió que se distinga, sin ambigüedad, entre macro cargada / macro ejecutada
+/ comando original ejecutado / función bloqueada por falta de hardware / resultado
+físico comprobado. Por macro, con precisión:
+
+| Macro | Cargada | Ejecutada | ¿Corrió el comando real de nivelación/medición? | ¿Resultado físico comprobado? |
+|---|---|---|---|---|
+| `BED_MESH_CALIBRATE` (wrapper) | Sí | Sí | **No** - el wrapper detectó que falta la sonda y abortó antes de llamar a `BED_MESH_CALIBRATE_BASE`. Nunca se intentó medir la cama. | No - no aplica, no se intentó nivelar nada |
+| `SCREWS_TILT_CALCULATE` (wrapper) | Sí | Sí (probado después, mismo resultado que `BED_MESH_CALIBRATE`: abortó antes de llamar al comando real) | No | No |
+| `FAN_TEST` | Sí | Sí | N/A (no es de nivelación) | **Sí, parcialmente** - se confirmó que el macro corrió las 3 etapas y que `fan.speed` volvió a 0.0 al final. No se confirmó con los ojos/oídos que la hélice gire de verdad (eso requiere al usuario presente) |
+| `DIAGNOSTICO_SENSORES` | Sí (tras corregir un bug real de comillas) | Sí | N/A | Parcial - los valores reportados (temperatura, homed_axes, sensores) son lecturas reales de Klipper, coherentes con el estado conocido, pero es un reporte de lectura, no una medición nueva |
+
+**Conclusión explícita, para que quede escrita y no se repita la ambigüedad:** ninguna
+prueba de hoy niveló la cama, midió una malla, ni confirmó físicamente que un
+ventilador gire. Lo que SÍ se confirmó: que el comportamiento de "avisar que falta
+hardware en vez de arrancar un movimiento de medición incompatible" funciona
+correctamente - que es exactamente lo que tenía que pasar mientras no haya sonda, ni
+más ni menos. No se declara la cama nivelada ni la sonda reemplazada por ningún motivo.

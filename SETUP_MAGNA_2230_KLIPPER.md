@@ -149,29 +149,68 @@ sobre STT) - mitigación real reportada en la comunidad de Klipper para combinac
 host débil + CH340. Fuente:
 [MCU lost communication: I'm stumped](https://klipper.discourse.group/t/mcu-lost-communication-im-stumped/21458).
 
-**Corrección: la regla udev para evitar el autosuspend del puerto NO está instalada
-todavía** (verificado el 2026-10-25: `/etc/udev/rules.d/99-usb-no-autosuspend-ch340.rules`
-no existe en el sistema). El archivo quedó guardado de forma permanente en el repo
-(`tools/99-usb-no-autosuspend-ch340.rules`, no en una carpeta temporal esta vez) - falta
-que el usuario corra, con su contraseña de administrador:
+**[CORRECCIÓN IMPORTANTE 2026-10-25, segunda revisión] La hipótesis de autosuspend
+queda DEBILITADA con evidencia directa, no solo "sin probar":**
+
+- Se buscó en **todo** el `journalctl -k` de este arranque cualquier mención de
+  `suspend`/`autosuspend`/`wakeup` asociada al dispositivo USB de la placa (`2-1.x`):
+  **cero resultados**, en ninguno de los 24 eventos de desconexión registrados.
+- El patrón real, repetido de forma idéntica en todos los eventos, es: varios
+  `usb_serial_generic_read/write_bulk_callback - urb stopped: -32` (falla de
+  transferencia USB, código EPIPE) seguidos INMEDIATAMENTE de `USB disconnect,
+  device number N` y una re-enumeración completa como dispositivo NUEVO (`device
+  number N+1`). Esto es la firma de una **desconexión eléctrica/de protocolo real**,
+  no de una suspensión de energía por software (que mostraría mensajes de
+  "auto-suspend"/"wakeup" sin cambiar el número de dispositivo).
+- Se verificó además que `power/control` de este dispositivo ya está en `on`
+  (autosuspend efectivamente desactivado a nivel de runtime) en el momento actual, y
+  las desconexiones siguen pasando igual.
+
+**Conclusión honesta:** instalar la regla udev de autosuspend (que sigue preparada,
+más abajo) probablemente **no** va a resolver este problema específico - esa regla
+ataca la suspensión de energía por software, y la evidencia dice que no es eso lo que
+está pasando. Se deja preparada igual (es gratis, no hace daño, y descarta esa vía por
+completo una vez instalada), pero **la expectativa realista es que no cambie nada**. La
+pista más consistente con la evidencia real (urb stopped + disconnect duro) sigue
+siendo: alimentación eléctrica inestable (de la placa o del puerto), o el chip CH340 en
+sí. La diferencia entre "falta persistencia de nombre/permisos" (lo que soluciona
+`/dev/serial/by-id`, ya en uso) y "una desconexión eléctrica real" (lo que estamos
+viendo) importa acá: no es un problema de que el sistema no reconozca el dispositivo,
+es que el dispositivo se CAE de verdad.
+
+Comando para instalarla igual, por las dudas (no hace daño, pero no esperar milagros):
 
 ```bash
 cd ~/printer_data/config && sudo cp tools/99-usb-no-autosuspend-ch340.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-### Tabla de hipótesis (actualizada 2026-10-25, sesión de monitoreo pasivo)
+### Tabla de hipótesis (actualizada 2026-10-25, segunda revisión)
 
 | Hipótesis | Evidencia a favor | Evidencia en contra | Prueba realizada | Resultado |
 |---|---|---|---|---|
 | Cable USB defectuoso | — | Desconexiones iguales con cable nuevo | Usuario cambió el cable | Descartada |
 | Puerto USB específico de la netbook | — | Desconexiones iguales con puerto nuevo (`2-1.1` → `2-1.2`) | Usuario cambió el puerto | Descartada |
 | Jumper de alimentación USB mal puesto | Síntoma coincide con lo documentado para la V1.2 | Esquemático oficial del chip F407 (el nuestro) no tiene jumper, es diodo-OR pasivo | Investigación de esquemático oficial | Debilitada, no confirmada ni descartada al 100% (placa no estándar) |
-| Autosuspend USB de Linux | Causa conocida en laptops | Regla udev para desactivarlo preparada pero **todavía no instalada** - no se puede confirmar ni descartar hasta correrla | Ninguna todavía | Pendiente de prueba real |
-| Las desconexiones las dispara el USO activo (G28, comandos) | — | **5 ciclos de G28 consecutivos (19:39-19:43) con 0 desconexiones nuevas**, mientras que las caídas pasaron en momentos de inactividad (19:20, 19:35) | Correlación de timestamps `journalctl -k` vs `gcode_store` | Descartada - no correlaciona con actividad |
-| CH340/controlador EHCI de la netbook, combinación débil de fábrica | Precedente real documentado en la comunidad (host débil + CH340) | — | Ninguna prueba discriminante propia todavía (necesitaría probar la placa en otra computadora) | Hipótesis más fuerte actual, sin confirmar del todo |
-| Alimentación general de la placa (no el jumper, sino la fuente/cable de 12-24V) | Podría explicar resets intermitentes del MCU | No se vio ningún patrón de reset de MCU coincidente con picos de consumo conocidos (calentamiento, movimiento) | Ninguna todavía | Sin evaluar |
+| **Autosuspend USB de Linux** | Causa conocida en laptops, en general | **Cero menciones de "suspend" en todo el log de 24 eventos; `power/control` ya en `on`; patrón de log es desconexión dura, no suspensión** | Búsqueda exhaustiva en `journalctl -k`, verificación de `power/control` | **Debilitada con evidencia directa** - probablemente no es esto |
+| Las desconexiones las dispara el USO activo (G28, comandos) | — | 5 ciclos de G28 consecutivos con 0 desconexiones nuevas; la de 20:12:11 pasó en inactividad | Correlación de timestamps `journalctl -k` vs `gcode_store` | Descartada - no correlaciona con actividad |
+| CH340/controlador EHCI de la netbook, combinación débil de fábrica | Precedente real documentado en la comunidad; patrón de log (urb stopped -32 + disconnect duro) consistente con falla eléctrica/de silicio, no con software | — | Ninguna prueba discriminante propia todavía (necesitaría probar la placa en otra computadora) | **Hipótesis más fuerte actual** |
+| Alimentación general de la placa (fuente/cable de 12-24V, no el jumper) | Podría explicar la desconexión dura observada | Sin patrón horario/térmico claro todavía | Ninguna todavía | Sin evaluar, segunda hipótesis más fuerte |
 
-**Dato de estabilidad real de esta sesión:** entre las 19:35:22 y las 20:08:19 (**33 minutos**), cero desconexiones nuevas, atravesando varios restarts de Klipper y pruebas de macros. No alcanza para declarar el problema resuelto (los eventos anteriores también tuvieron huecos de 10-15 minutos entre caídas), pero es la ventana más larga limpia registrada hasta ahora.
+**Datos de estabilidad reales de esta sesión (no se cuentan solo históricos, se midió
+en vivo):** racha más larga sin desconexiones: **36 minutos 49 segundos** (19:35:22 a
+20:12:11), atravesando varios restarts de Klipper y pruebas de macros - después volvió
+a caer, con la misma firma de siempre (urb stopped -32 + disconnect duro). Total de
+desconexiones en este arranque: **24**. No se declara el problema resuelto ni mejorado
+de forma sostenida - 36 minutos es el hueco más largo visto hoy, pero hubo huecos de
+10-15 minutos antes también, así que es dentro del rango de variación normal del
+problema, no necesariamente una mejora real.
+
+**Siguiente prueba discriminante recomendada, dado que autosuspend quedó débil:** un
+hub USB con alimentación propia sigue siendo el experimento más informativo y de
+menor costo (~10-15 USD) - si las desconexiones PARAN con el hub, aísla el problema al
+lado de la alimentación/puerto de la netbook; si SIGUEN igual con el hub, aísla el
+problema al lado de la placa/cable de la impresora. No se declara esto "la solución"
+de antemano - es la prueba que mejor separa las dos hipótesis más fuertes que quedan.
 
 **Siguiente prueba discriminante pendiente:** correr la regla udev (arriba) y medir si cambia la frecuencia de desconexiones en una ventana de observación larga (horas, no minutos) - eso sí distinguiría "es autosuspend" de "no es autosuspend, es otra cosa".
 
