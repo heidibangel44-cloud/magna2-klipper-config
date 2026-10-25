@@ -114,6 +114,46 @@ Formato de cada entrada: fecha, qué se hizo/encontró, evidencia concreta, esta
 - Moonraker: `update_manager channel` estaba en `dev` (inestable) - cambiado a `stable`.
   Falta reiniciar el servicio de moonraker (necesita sudo, pendiente del usuario).
 
+## 2026-10-25 (continuación) — Autorización de pruebas físicas, primer homing exitoso post-reflasheo
+
+El usuario autorizó expresamente G28 y pruebas de movimiento sin pedir confirmación en
+cada paso, con condiciones de seguridad explícitas (parar si algo es incoherente, no
+repetir movimientos riesgosos a ciegas, no imprimir ni calentar sin supervisión).
+
+- **G28 X Y: exitoso.** `homed_axes: xy`, posición [0,0], sin error. Endstops tras home:
+  `stepper_x:TRIGGERED stepper_y:TRIGGERED` (coherente - están físicamente apretados en
+  el punto de home, no se movieron después).
+- **G28 Z: exitoso.** Primera vez con el firmware reflasheado el 2026-10-25. `homed_axes:
+  xyz`, sin shutdown, `bytes_invalid: 0`. Tras home, XY se movió al centro (115,115) y Z
+  subió a 10 (comportamiento esperado de `[safe_z_home]`). Endstops después: los tres en
+  `open` (coherente con las posiciones resultantes).
+- **5 ciclos de home completo repetido (viajar + G28), solo software:** los 5 dieron
+  `estado=ready`, `homed_axes=xyz`, mismos stats de MCU (`9,0` - sin cambio, sin
+  retransmisiones nuevas) cada vez. **Esto prueba que la comunicación y el software se
+  comportan de forma estable y repetible en 5 ciclos consecutivos de homing. NO prueba
+  que la altura física real sea consistente** - esa medición requiere al usuario con
+  papel en mano, que es justo la parte que el script `test_z_repeatability.sh` pide por
+  `read -p` y que no se puede completar sin una persona presente. Esa prueba física con
+  papel sigue pendiente.
+- Resultados guardados en
+  `tools/z_repeatability_results_20261025_193922_SOLO_SOFTWARE.csv`.
+- **El USB se desconectó 2 veces más durante este bloque de trabajo** (antes de empezar
+  el homing), recuperado con `firmware_restart`/`restart`. Sigue sin resolverse de fondo,
+  pero no impidió completar los 5 ciclos de homing sin incidentes una vez reconectado.
+
+### Inventario de sensores (estado real, no inferido)
+
+| Sensor | Identificado | Consultado | Funcional por software | Probado físicamente | Nota |
+|---|---|---|---|---|---|
+| Endstop X (`!PA15`) | sí | sí | sí | sí | `open`/`TRIGGERED` coherente con posición conocida, hoy |
+| Endstop Y (`!PA12`) | sí | sí | sí | sí | idem |
+| Endstop Z (`^!PA11`, switch mecánico) | sí | sí | sí | sí (parcial) | Coherente en reposo/home hoy. Repetibilidad física (papel) NO probada hoy - pendiente |
+| Sonda "3D Touch" (BLTouch clon) | sí | sí | **no** | sí | Diagnóstico de hardware roto confirmado 2026-08-18, desconectada |
+| Sensor filamento T0 (`^PA4`) | sí | sí | sí | no | Lee `filament_detected: false` coherente (sin filamento cargado) - falta probar que SÍ detecte al cargar |
+| Sensor filamento T1 (`^PE6`) | sí | sí | sí | no | idem |
+| Termistor extruder (`PC1`) | sí | sí | sí | parcial | Lectura ambiente coherente (~23°C). Falta validar en caliente con protección térmica |
+| Termistor cama (`PC0`) | sí | sí | sí | parcial | idem, ~22°C ambiente |
+
 ---
 
 ## Tareas activas (no repetir investigación ya hecha arriba)
@@ -121,16 +161,18 @@ Formato de cada entrada: fecha, qué se hizo/encontró, evidencia concreta, esta
 Ver TaskList de la sesión en curso / `SETUP_MAGNA_2230_KLIPPER.md` sección "Pendiente"
 para el detalle completo. Resumen de lo que sigue abierto al cierre de esta entrada:
 
-- **USB: pendiente que el usuario revise el jumper de alimentación de la placa** (ver
-  arriba) - es la pista más concreta y de costo cero que hay ahora. Si eso no es, la
-  siguiente opción más barata es un hub USB con alimentación propia.
-- Prueba de repetibilidad de Z: diseñada pero NO ejecutada (requiere sesión supervisada
-  con el usuario presente).
-- `_FORM_TIP` preparado pero no conectado a T0/T1 - probar con hotend caliente en la
+- **USB: pendiente identificar el jumper EXACTO para esta revisión de placa** (no asumir
+  que el hallazgo genérico de un foro aplica sin confirmar el esquemático real - en
+  investigación ahora mismo).
+- **Prueba de repetibilidad FÍSICA de Z (con papel): sigue pendiente** - la parte de
+  software ya se validó hoy (5/5 ciclos limpios), falta la parte física con el usuario
+  presente.
+- `_FORM_TIP` preparado pero no conectado a T0/T1 - probar con hotend caliente en
   sesión supervisada antes de integrarlo al flujo real de cambio de color.
 - Segundo fan en PB0 preparado pero comentado - el usuario debe verificar el jumper de
   voltaje de ese terminal antes de activarlo.
 - Reiniciar el servicio de moonraker para que tome el canal `stable` (pendiente, necesita
   sudo del usuario).
-- Pressure Advance, Input Shaper (bloqueado en hardware), ESP32, ventilador auxiliar,
-  doble color: en investigación/preparación de software, sin prueba física.
+- Pressure Advance, Input Shaper (bloqueado en hardware), ventilador auxiliar, doble
+  color: en investigación/preparación de software, sin prueba física de calor/extrusión
+  (requiere supervisión, no se hace sin el usuario presente).
