@@ -84,6 +84,35 @@ Formato de cada entrada: fecha, qué se hizo/encontró, evidencia concreta, esta
 - Auditoría de sensores sin movimiento: endstops X/Y/Z en `open` coherente, temperaturas
   a ambiente coherentes, sensores de filamento sin filamento cargado (esperado, sin
   filamento puesto). Nada inconsistente encontrado.
+- Mientras se trabajaba (sin tocar nada del lado del software), **el USB se desconectó
+  solo otras 2 veces más** (18:19:54 y 18:28:07-18:28:25, confirmado en `journalctl -k`,
+  device number subiendo hasta 20 - o sea, veinte reconexiones desde el boot). Sigue
+  pasando con cable Y puerto ya cambiados por el usuario.
+- **Pista concreta y de costo cero encontrada para el USB:** la MKS Robin Nano tiene un
+  jumper de alimentación USB (documentado en el foro de Klipper para esta familia de
+  placas) que debe estar en 12V/24V, nunca en "USB power", y nunca alimentando por los
+  dos lados a la vez - si está mal puesto causa exactamente "unstable voltage
+  conditions or ground loops", síntoma indistinguible de lo que estamos viendo.
+  **Pendiente de que el usuario lo revise físicamente - no se puede ver por software.**
+  Fuente: https://klipper.discourse.group/t/weird-usb-jumper-on-a-znp-mks-robin-nano-v1-2-3-board/22475
+- **Hallazgo grande:** existe un repo de GitHub (`FacuM/hellbot-wanhao-300-dual-klipper`)
+  con una config real para la MISMA impresora (Hellbot Magna 2, misma placa, mismos
+  pines de `extruder1`: PA6/PA1/PA3 - confirma que es el mismo hardware). Tiene un macro
+  `_FORM_TIP` (ramming + vaivenes de enfriamiento antes de retraer) pensado para evitar
+  que la punta de filamento se atasque en el splitter en Y donde se juntan los dos
+  caminos - un problema mecánico real y documentado de este diseño que nosotros no
+  habíamos visto todavía. Se adaptó (no copiado a ciegas - las coordenadas de purga de
+  ese repo son de SU cama de 300mm, no sirven para nuestra cama de 230mm) e incorporado
+  como macro `_FORM_TIP` nuevo en printer.cfg, **preparado pero NO conectado todavía a
+  T0/T1** - falta probarlo con el hotend caliente de verdad, que necesita supervisión.
+- Confirmado por código fuente real de Marlin (no suposición): el pin **PB0** de esta
+  placa queda libre como segundo ventilador/heater cuando hay 1 solo hotend (nuestro
+  caso) - sale físicamente al terminal rotulado "HE1". Agregado como `[heater_fan]`
+  comentado/preparado en printer.cfg, con la advertencia de verificar el jumper de
+  voltaje de ese terminal antes de activarlo (podría estar en 12V o 24V, nunca conectar
+  un fan de 5V ahí sin chequear).
+- Moonraker: `update_manager channel` estaba en `dev` (inestable) - cambiado a `stable`.
+  Falta reiniciar el servicio de moonraker (necesita sudo, pendiente del usuario).
 
 ---
 
@@ -92,9 +121,16 @@ Formato de cada entrada: fecha, qué se hizo/encontró, evidencia concreta, esta
 Ver TaskList de la sesión en curso / `SETUP_MAGNA_2230_KLIPPER.md` sección "Pendiente"
 para el detalle completo. Resumen de lo que sigue abierto al cierre de esta entrada:
 
-- USB sigue flaqueando con cable y puerto nuevos - causa probable ahora: la placa
-  (CH340) o alimentación USB de la netbook, no el cable. Sin confirmar todavía.
+- **USB: pendiente que el usuario revise el jumper de alimentación de la placa** (ver
+  arriba) - es la pista más concreta y de costo cero que hay ahora. Si eso no es, la
+  siguiente opción más barata es un hub USB con alimentación propia.
 - Prueba de repetibilidad de Z: diseñada pero NO ejecutada (requiere sesión supervisada
   con el usuario presente).
+- `_FORM_TIP` preparado pero no conectado a T0/T1 - probar con hotend caliente en la
+  sesión supervisada antes de integrarlo al flujo real de cambio de color.
+- Segundo fan en PB0 preparado pero comentado - el usuario debe verificar el jumper de
+  voltaje de ese terminal antes de activarlo.
+- Reiniciar el servicio de moonraker para que tome el canal `stable` (pendiente, necesita
+  sudo del usuario).
 - Pressure Advance, Input Shaper (bloqueado en hardware), ESP32, ventilador auxiliar,
   doble color: en investigación/preparación de software, sin prueba física.

@@ -90,8 +90,16 @@ el workflow de GitHub Actions todavía usa el script viejo. Falta actualizar
 
 ## Pendiente
 
+- [ ] **Revisar físicamente el jumper de alimentación USB de la Robin Nano** (debe estar
+      en 12V/24V, nunca "USB power", nunca los dos a la vez) - pista concreta y de
+      costo cero para el problema de desconexiones, encontrada el 2026-10-25. Ver nota
+      técnica de estabilidad USB abajo.
 - [ ] Primera impresión de prueba estable (requiere confirmar que el USB ya no se
       desconecta - ver "Nota técnica: estabilidad USB" abajo)
+- [ ] Probar `_FORM_TIP` (agregado 2026-10-25, preparado pero no conectado a T0/T1) con
+      el hotend caliente de verdad - necesita supervisión, no se puede probar en frío.
+- [ ] Si se activa el segundo fan en PB0 (preparado/comentado): verificar a mano el
+      jumper de voltaje de ese terminal ("HE1") antes de conectar cualquier ventilador.
 - [ ] Pressure advance - procedimiento listo, ver nota técnica abajo (necesita impresión
       de prueba, por separado para T0 y T1)
 - [ ] Configurar el Prime Tower en OrcaSlicer para el cambio de color - ver nota técnica
