@@ -90,10 +90,12 @@ el workflow de GitHub Actions todavía usa el script viejo. Falta actualizar
 
 ## Pendiente
 
-- [ ] **Revisar físicamente el jumper de alimentación USB de la Robin Nano** (debe estar
-      en 12V/24V, nunca "USB power", nunca los dos a la vez) - pista concreta y de
-      costo cero para el problema de desconexiones, encontrada el 2026-10-25. Ver nota
-      técnica de estabilidad USB abajo.
+- [ ] **USB: conseguir un hub USB con alimentación propia** (~10-15 USD, preferir tipo
+      MTT sobre STT) - la hipótesis del jumper de alimentación se investigó a fondo y
+      quedó DEBILITADA (el esquemático oficial del chip F407 no tiene jumper, es un
+      circuito pasivo - el jumper real es de la variante V1.2/F103, otro chip). Revisar
+      visualmente la zona del USB es gratis y rápido pero ya no es la pista más fuerte.
+      Ver nota técnica de estabilidad USB abajo.
 - [ ] Primera impresión de prueba estable (requiere confirmar que el USB ya no se
       desconecta - ver "Nota técnica: estabilidad USB" abajo)
 - [ ] Probar `_FORM_TIP` (agregado 2026-10-25, preparado pero no conectado a T0/T1) con
@@ -121,15 +123,41 @@ el workflow de GitHub Actions todavía usa el script viejo. Falta actualizar
 el repo de GitHub, pull-up faltante en el switch de Z, Cura/OrcaSlicer con perfiles
 básicos.
 
-## Nota técnica: estabilidad USB (hallazgo 2026-10-25)
+## Nota técnica: estabilidad USB (hallazgo 2026-10-25, actualizado el mismo día)
 
 Se encontró evidencia real (`journalctl -k`) de desconexiones físicas del USB del CH340
 (reconecta solo segundos después, a veces en menos de 1 segundo) que tiran a Klipper a
 shutdown y borran el homing - esto explica buena parte de la sensación de "la altura
 cambia sola": en realidad la impresora se cayó y el usuario sigue nivelando sobre un
-estado inválido. No es (solo) un problema mecánico de Z. Pendiente: confirmar con cable/
-puerto USB distinto si el problema para. Regla udev preparada para evitar que el sistema
-suspenda ese puerto (ver sección de Acceso/Comandos).
+estado inválido. No es (solo) un problema mecánico de Z.
+
+**Ya descartado:** cable USB nuevo y puerto distinto de la netbook - el problema siguió
+pasando igual con ambos cambiados, varias veces, incluso el mismo 2026-10-25 durante
+pruebas de homing (recuperado sin incidentes cada vez, gracias a que el chequeo de
+endstop corre en la propia placa, no depende de la conexión).
+
+**Hipótesis del jumper de alimentación USB: investigada y DEBILITADA.** El esquemático
+oficial de Makerbase para la variante con chip STM32F407 (la nuestra) muestra un
+circuito pasivo de diodo-OR, sin jumper selector. El jumper que menciona la comunidad es
+de la variante V1.2 (chip STM32F103, distinto al nuestro). Como nuestra placa es una
+combinación no estándar (rotulada "V1.2" por Hellbot, chip F407 real), no se descarta
+del 100% sin mirar la placa, pero ya no es la pista más prometedora.
+
+**Siguiente paso recomendado, de la investigación de causa raíz:** un hub USB con
+alimentación propia entre la netbook y la placa (~10-15 USD, preferir hubs tipo MTT
+sobre STT) - mitigación real reportada en la comunidad de Klipper para combinaciones de
+host débil + CH340. Fuente:
+[MCU lost communication: I'm stumped](https://klipper.discourse.group/t/mcu-lost-communication-im-stumped/21458).
+
+**Corrección: la regla udev para evitar el autosuspend del puerto NO está instalada
+todavía** (verificado el 2026-10-25: `/etc/udev/rules.d/99-usb-no-autosuspend-ch340.rules`
+no existe en el sistema). El archivo quedó guardado de forma permanente en el repo
+(`tools/99-usb-no-autosuspend-ch340.rules`, no en una carpeta temporal esta vez) - falta
+que el usuario corra, con su contraseña de administrador:
+
+```bash
+cd ~/printer_data/config && sudo cp tools/99-usb-no-autosuspend-ch340.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
+```
 
 ## Nota técnica: doble color / purga (2026-10-25)
 

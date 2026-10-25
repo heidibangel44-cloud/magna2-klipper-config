@@ -1,0 +1,4 @@
+# Evita que el kernel suspenda el puerto USB del CH340 (placa MKS Robin Nano)
+# Causa conocida de "Lost communication with MCU" en Klipper sobre laptops.
+# Instalar con: sudo cp tools/99-usb-no-autosuspend-ch340.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="7523", TEST=="power/control", ATTR{power/control}="on"

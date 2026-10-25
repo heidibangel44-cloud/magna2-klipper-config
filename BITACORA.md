@@ -93,8 +93,20 @@ Formato de cada entrada: fecha, qué se hizo/encontró, evidencia concreta, esta
   placas) que debe estar en 12V/24V, nunca en "USB power", y nunca alimentando por los
   dos lados a la vez - si está mal puesto causa exactamente "unstable voltage
   conditions or ground loops", síntoma indistinguible de lo que estamos viendo.
-  **Pendiente de que el usuario lo revise físicamente - no se puede ver por software.**
   Fuente: https://klipper.discourse.group/t/weird-usb-jumper-on-a-znp-mks-robin-nano-v1-2-3-board/22475
+
+**[CORRECCIÓN 2026-10-25, tras investigar el esquemático oficial]:** la hipótesis del
+jumper queda DEBILITADA, no descartada del todo. Evidencia directa del esquemático
+oficial de Makerbase para la variante con chip F407 (la nuestra,
+`makerbase-mks/MKS-Robin-Nano-V1.X`, hojas USB.SchDoc/Power.SchDoc de la V1.3_002 y de
+la Nano-S V1.3_001): **no hay jumper** - es un circuito pasivo de diodo-OR que mezcla
+automáticamente la alimentación USB y la externa, sin selector. El jumper que describe
+el foro de Klipper, y el que confirma la propia cuenta oficial de Makerbase en GitHub
+issue #87, es específico de la **V1.2 (chip STM32F103, no F407)** - un chip distinto al
+nuestro. Como nuestra placa es una combinación no estándar (rotulada "V1.2" por Hellbot
+pero con el chip F407 real), no se puede descartar al 100% sin inspección visual directa
+- pero la evidencia documental dice que es MENOS probable de lo que parecía al principio.
+No es la pista más fuerte que tenemos ahora - ver alternativas abajo.
 - **Hallazgo grande:** existe un repo de GitHub (`FacuM/hellbot-wanhao-300-dual-klipper`)
   con una config real para la MISMA impresora (Hellbot Magna 2, misma placa, mismos
   pines de `extruder1`: PA6/PA1/PA3 - confirma que es el mismo hardware). Tiene un macro
@@ -189,9 +201,12 @@ repetir movimientos riesgosos a ciegas, no imprimir ni calentar sin supervisión
 Ver TaskList de la sesión en curso / `SETUP_MAGNA_2230_KLIPPER.md` sección "Pendiente"
 para el detalle completo. Resumen de lo que sigue abierto al cierre de esta entrada:
 
-- **USB: pendiente identificar el jumper EXACTO para esta revisión de placa** (no asumir
-  que el hallazgo genérico de un foro aplica sin confirmar el esquemático real - en
-  investigación ahora mismo).
+- **USB: hipótesis del jumper investigada y DEBILITADA** (esquemático oficial del chip
+  F407 muestra circuito pasivo, sin jumper - el jumper real es de la V1.2/F103, otro
+  chip). Opcional de costo cero: inspección visual rápida de la zona del conector USB
+  por si nuestra placa no-estándar tiene algo distinto - pero no es la pista más fuerte
+  ya. **Siguiente paso más prometedor:** hub USB con alimentación propia (~10-15 USD,
+  preferir tipo MTT sobre STT), según la investigación de causa raíz del 2026-10-25.
 - **Prueba de repetibilidad FÍSICA de Z (con papel): sigue pendiente** - la parte de
   software ya se validó hoy (5/5 ciclos limpios), falta la parte física con el usuario
   presente.
