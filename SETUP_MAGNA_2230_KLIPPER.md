@@ -309,6 +309,135 @@ caliente disponible:
    filamento = `filament_detected: false`), falta probar que detecten correctamente
    AL CARGAR filamento real (prueba física simple, sin riesgo).
 
+### Procedimiento interactivo de recalibración real de T0 y T1 (preparado 2026-10-26)
+
+**Arquitectura real de esta máquina, confirmada, para no adaptar un protocolo
+genérico de impresora equivocada:** dos motores extrusores físicamente separados
+(`extruder` = T0, `extruder_stepper extruder1` = T1), que empujan filamento por
+caminos separados hasta un punto donde se UNEN en un solo hotend/boquilla (no son dos
+boquillas independientes). Por eso cada motor se calibra por separado - la distancia
+que avanza el motor (lo que mide este procedimiento) y la distancia que efectivamente
+sale fundida por la boquilla son conceptualmente distintas (hay backflow, compresión y
+derretimiento de por medio) - este procedimiento mide lo primero (extrusión del
+motor), que es lo que gobierna `rotation_distance`, no un caudal de salida.
+
+**Antes de empezar - lo que necesitás tener a mano:**
+- Filamento cargado en AL MENOS el extrusor que se vaya a calibrar primero (empezar
+  por T0).
+- Una regla o cinta métrica con buena resolución (milímetros).
+- Un marcador o cinta para marcar el filamento.
+- El hotend a la temperatura del material (PLA: 200-210°C, el valor que venimos
+  usando en este proyecto - avisame si es otro material).
+- Verificar que no haya ninguna sesión de impresión en curso.
+
+**Paso 1 - Comprobaciones previas y seguridad:**
+- Confirmar `DIAGNOSTICO_SENSORES` (reporta temperaturas, sensores de filamento,
+  homed_axes) antes de calentar nada.
+- Confirmar que el extrusor correcto está activo (`T0` o `T1`) antes de cada medición
+  - si no estás seguro de cuál está activo, `DIAGNOSTICO_SENSORES` no lo muestra
+  directamente todavía, pero `ESTADO_CALIBRACION` sí reporta valores de ambos
+  rotation_distance para referencia.
+- Calentar con `M104 S210` (o la temperatura de tu material) y esperar a que llegue
+  (`M109 S210` espera automáticamente). **No dejar calentando sin supervisión.**
+
+**Paso 2 - Identificar motor y dirección (ya verificado en sesiones anteriores, no
+repetir salvo que algo haya cambiado físicamente):** T0 = `extruder` (pines
+PD6/PD3/PB3), T1 = `extruder_stepper extruder1` (pines PA6/PA1/PA3). Las direcciones
+de giro ya fueron confirmadas correctas - si notás que alguno extrude "al revés"
+(retrae en vez de avanzar con E positivo), avisame de inmediato y no sigas.
+
+**Paso 3 - Confirmar alimentación correcta del filamento:** con el extrusor
+correspondiente activo (`T0` o `T1`) y el hotend caliente, extrudí unos pocos mm a
+mano (`LOAD_FILAMENT_T0` o `LOAD_FILAMENT_T1`, que ya empuja 50mm de prueba) y
+confirmá que sale filamento fundido de la boquilla, sin saltos de pasos (sonido de
+"clicking") ni filamento enroscándose sin avanzar.
+
+**Paso 4 - Medición real:**
+1. Marcá el filamento con el marcador justo donde entra al extrusor (o medí y marcá
+   una distancia conocida, ej. 100mm, desde ese punto hacia atrás).
+2. Mandá un comando de extrusión conocido, por ejemplo `G92 E0` seguido de
+   `G1 E100 F100` (100mm solicitados, velocidad lenta para medir con precisión).
+3. Medí con la regla cuánto se movió la marca en relación al punto de entrada - esa
+   es la distancia REAL que avanzó el filamento.
+
+**Paso 5 - Comparar:** `distancia_real / distancia_solicitada` = factor de corrección.
+Ejemplo: pediste 100mm, se movieron 97mm reales → factor = 0.97.
+
+**Paso 6 - Calcular el nuevo `rotation_distance`:**
+`nuevo = actual * (distancia_real / distancia_solicitada)`. Con el ejemplo de T0
+(actual 7.474) y un factor de 0.97: `nuevo = 7.474 * 0.97 = 7.25`.
+
+**Paso 7 - Repetir la medición con el valor nuevo** (aplicarlo en caliente con
+`SET_EXTRUDER_ROTATION_DISTANCE EXTRUDER=extruder DISTANCE=7.25` para T0, o
+`EXTRUDER=extruder1` para T1, sin reiniciar Klipper) y volver a medir 100mm
+solicitados - el objetivo es que la distancia real ahora esté muy cerca de 100mm
+(diferencia menor al 1-2%).
+
+**Paso 8 - Registrar:** anotamos juntos, para cada extrusor: valor original, valor
+nuevo, distancia solicitada, distancia medida en cada pasada, y el error porcentual
+final. Esto se guarda en `BITACORA.md` con fecha, no se pierde.
+
+**Paso 9 - Repetir TODO el proceso (pasos 1 a 8) de forma independiente para el otro
+extrusor.** No asumir que el factor de corrección de T0 aplica a T1 - son motores
+distintos (ya se vio que tienen rotation_distance diferente: 7.474 vs 7.848).
+
+**Paso 10 - Validación cruzada final:** después de calibrar T1, volvé a probar T0
+brevemente (ej. extrudir 20mm y confirmar que se siente igual que antes) para
+confirmar que ajustar T1 no afectó a T0 por accidente (no debería, son steppers
+independientes, pero se verifica igual).
+
+**Para guardar los valores nuevos de forma permanente** (el `SET_EXTRUDER_ROTATION_DISTANCE`
+de los pasos anteriores es solo temporal, se pierde al reiniciar):
+```
+[extruder]
+rotation_distance: 7.25        # reemplazar por el valor medido de T0
+
+[extruder_stepper extruder1]
+rotation_distance: 7.95        # reemplazar por el valor medido de T1
+```
+
+**Cómo comunicarme el resultado:** decime, para cada extrusor, la distancia real
+medida en cada pasada (al menos 2 pasadas por extrusor) - yo calculo el factor y el
+nuevo valor, lo verificamos juntos, y lo guardo en printer.cfg y en la bitácora.
+
+### Procedimiento de inspección mecánica física (preparado 2026-10-26, nunca hecho de forma sistemática)
+
+Esto es una inspección visual/manual - yo no puedo ejecutar nada de esto, es para que
+lo hagas vos (con la impresora APAGADA o con motores desenergizados, `M84`, para poder
+mover los ejes a mano con seguridad).
+
+1. **Correas de X/Y:** con la impresora apagada, tocá cada correa con el dedo -
+   debe tener tensión firme pero no "guitarra" (demasiado tensa daña rodamientos). Si
+   se siente floja/cuelga, o si ves desgaste/pelos en la correa, avisame el estado.
+2. **Holgura (play) en cada eje:** con motores desenergizados, movete el carro X y la
+   cama Y a mano, de lado a lado, sintiendo si hay juego libre antes de que "agarre"
+   la mecánica (no debería notarse casi nada). En Z, lo mismo con la varilla/leadscrew
+   - un poco de juego rotacional es normal, pero si la cama se mueve verticalmente a
+   mano sin girar el motor, es un problema real (acople flojo).
+3. **Rodamientos/varillas lineales:** deslizá cada eje a mano por todo su recorrido -
+   debe sentirse suave, sin puntos duros ni "clicks". Puntos duros sugieren rodamiento
+   dañado o varilla desalineada.
+4. **Estructura general:** con la impresora armada, empujá suavemente el marco desde
+   arriba en varias direcciones - no debería flexionar ni balancearse de forma
+   notoria. Si se mueve mucho, los tornillos estructurales podrían estar flojos.
+5. **Distancia boquilla-cama (Z):** este es el que más se relacionó con el problema
+   histórico de altura inconsistente. Con la impresora ya calibrada (switch de Z con
+   el pull-up ya corregido), hacé `ALTURA_SEGURA` y después bajá Z de a poco con el
+   papel, en varias posiciones de la cama - estamos buscando confirmar que la
+   distancia es consistente en distintos puntos (no solo repetible en el mismo punto,
+   que ya se probó), lo que hablaría de un problema de nivelación real de la cama (no
+   de homing) si varía mucho de un lado a otro.
+6. **Zona segura de la boquilla:** confirmá visualmente que, en los límites configurados
+   (`position_max` de X/Y en 230mm cada uno), la boquilla no choca contra ningún tope
+   físico, cable o pieza de la estructura antes de llegar ahí. Esto nunca se probó a
+   fondo en este proyecto (ver nota en BITACORA sobre por qué no se testeó a ciegas).
+
+**Qué hacer con lo que encuentres:** si algo de esto sale mal (correa floja, juego
+real, puntos duros), avisame ANTES de que sigamos con cualquier calibración de
+velocidad o aceleración - esos problemas mecánicos arruinan cualquier calibración de
+software que se haga encima. Si todo sale bien, lo registro en la bitácora como
+confirmado y seguimos sin perder tiempo repitiendo esto después.
+
 ## Nota técnica: Pressure Advance (2026-10-25)
 
 Klipper no tiene un macro de auto-calibración de PA (a diferencia de `PID_CALIBRATE`).
