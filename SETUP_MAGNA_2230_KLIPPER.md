@@ -22,9 +22,11 @@ la Hellbot Magna 2 230 Dual. Última actualización: 2026-08-11.
 
 ## Software instalado
 
-- **Host:** Linux Mint 22.3, en esta netbook (Intel Celeron B820, 5.7GB RAM)
-- **Klipper:** instalado vía KIAUH, compilado localmente (toolchain ARM instalado)
-- **Moonraker + Mainsail:** instalados vía KIAUH
+- **Host:** Linux Mint 22.3 "Zena" (verificado 2026-10-26, no asumido), kernel
+  `6.14.0-37-generic`, Python 3.12.3, en esta netbook (Intel Celeron B820, 5.7GB RAM)
+- **Klipper:** `v0.13.0-730-g84104bbb` (verificado vía `/printer/info`)
+- **Moonraker:** `v0.10.0-31-gd5ee171` (verificado vía `/server/info`)
+- **Mainsail:** `v2.18.2` (verificado)
 - **Firmware del MCU:** compilado con el defconfig del repo
   `~/klipper-magna/magna-klipper/config/robin_nano_v13_f4.config`
   (USART3, cristal 8MHz, bootloader 32KiB, baud 250000)
@@ -48,12 +50,41 @@ el workflow de GitHub Actions todavía usa el script viejo. Falta actualizar
 ## Acceso
 
 - **Mainsail:** `http://192.168.18.196` (puerto 80) — accesible desde la red local
-  (192.168.18.0/24), bloqueado desde internet por firewall (ufw activo).
+  (192.168.18.0/24). Firewall (ufw) configurado anteriormente en el proyecto para
+  bloquear desde fuera de esa red - **no reverificado en esta sesión** (necesita sudo
+  interactivo), asumir que sigue como se dejó salvo que se confirme lo contrario.
 - **Moonraker API:** `http://192.168.18.196:7125`
 - **API key de Moonraker:** ver con `curl http://localhost:7125/access/api_key`
   (no compartir públicamente, da control de la impresora)
 - **Puerto serie:** `/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0` (ruta estable,
   no usar `/dev/ttyUSB0` que puede cambiar de número)
+
+### Red: WiFi, IP cambiante y acceso remoto (auditado 2026-10-26)
+
+- **Conexión actual:** WiFi (`wlp2s0`, red "FTTH_Wruck"), IP `192.168.18.196/24` por
+  **DHCP** (no estática - técnicamente puede cambiar si el router reasigna la
+  dirección, aunque en la práctica viene siendo la misma desde agosto). Ethernet
+  (`enp3s0`) existe en la netbook pero no está conectado por cable ahora.
+- **Para no depender de la IP (ya funciona, confirmado, sin instalar nada nuevo):**
+  `avahi-daemon` ya está activo en este sistema. Se puede acceder como
+  `http://facundo-cx215xx-cx212xx.local` desde cualquier dispositivo de la red que
+  soporte mDNS (Windows 10+, macOS, Linux, la mayoría de Android) - **confirmado que
+  resuelve** (`avahi-resolve -n facundo-cx215xx-cx212xx.local`). Más simple y sin
+  configurar nada en el router.
+- **Alternativa más universal (si algún dispositivo no soporta mDNS):** reserva DHCP
+  en el router, asignando siempre la misma IP a la MAC de esta netbook:
+  `dc:85:de:93:60:0e` (interfaz WiFi). Esto se configura DESDE el router, no desde
+  acá - páginas de administración varían según el modelo.
+- **Acceso remoto fuera de la red local: NO expongas Mainsail/Moonraker directo a
+  Internet** (ni con port-forwarding en el router). La alternativa segura es una VPN
+  tipo mesh, ej. **Tailscale**: requiere crear una cuenta (gratis para uso personal,
+  hasta cierto número de dispositivos), instalar el cliente en esta netbook
+  (`curl -fsSL https://tailscale.com/install.sh | sh` + `tailscale up`, requiere login
+  una vez) y el cliente en cada dispositivo desde el que quieras controlar la
+  impresora (celular, otra PC). Una vez conectados ambos a la misma "tailnet", se
+  accede por la IP privada que asigna Tailscale (ej. `100.x.x.x`) como si estuvieran
+  en la misma red, sin abrir ningún puerto al público. **No instalado todavía** - es
+  una decisión del usuario, no algo que se instale solo.
 
 ## Calibraciones realizadas (2026-08-11)
 

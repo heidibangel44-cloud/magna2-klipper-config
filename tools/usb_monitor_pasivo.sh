@@ -10,12 +10,16 @@
 LOGFILE="$HOME/printer_data/config/tools/usb_monitor_pasivo_$(date +%Y%m%d_%H%M%S).csv"
 echo "timestamp,klipper_state,usb_disconnects_total,mcu_retransmit,mcu_invalid,evento_nuevo" > "$LOGFILE"
 
-ultimo_disconnect_count=$(journalctl -k -b 2>/dev/null | grep -c "USB disconnect")
+# [FIX 2026-10-26] "USB disconnect" generico cuenta CUALQUIER dispositivo USB
+# (ej. el WiFi/Bluetooth interno de la netbook reconectando en el boot, o un
+# pendrive) - encontrado como falso positivo real. Filtro especifico del
+# driver ch341 (el chip de la placa), no cuenta nada mas.
+ultimo_disconnect_count=$(journalctl -k -b 2>/dev/null | grep -c "ch341.*device disconnected")
 
 while true; do
     ts=$(date -Iseconds)
     estado=$(curl -s -m 3 http://localhost:7125/printer/info 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['state'])" 2>/dev/null || echo "sin_respuesta")
-    disc_count=$(journalctl -k -b 2>/dev/null | grep -c "USB disconnect")
+    disc_count=$(journalctl -k -b 2>/dev/null | grep -c "ch341.*device disconnected")
     stats=$(curl -s -m 3 "http://localhost:7125/printer/objects/query?mcu" 2>/dev/null | python3 -c "
 import json,sys
 try:

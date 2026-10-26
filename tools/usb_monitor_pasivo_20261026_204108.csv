@@ -1,0 +1,11 @@
+timestamp,klipper_state,usb_disconnects_total,mcu_retransmit,mcu_invalid,evento_nuevo
+2026-10-26T20:41:08-03:00,ready,0,9,0,no
+2026-10-26T20:41:24-03:00,ready,0,9,0,no
+2026-10-26T20:41:39-03:00,ready,0,9,0,no
+2026-10-26T20:41:54-03:00,ready,0,9,0,no
+2026-10-26T20:42:10-03:00,ready,0,9,0,no
+2026-10-26T20:42:25-03:00,ready,0,9,0,no
+2026-10-26T20:42:40-03:00,ready,0,9,0,no
+2026-10-26T20:42:56-03:00,ready,0,9,0,no
+2026-10-26T20:43:11-03:00,ready,0,9,0,no
+2026-10-26T20:43:27-03:00,ready,0,9,0,no
