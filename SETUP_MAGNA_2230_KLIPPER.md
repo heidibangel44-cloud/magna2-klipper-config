@@ -666,6 +666,42 @@ No se recomienda ESP32 para ningún rol dentro de Klipper (ya investigado y desc
 No se recomienda eddy current (Cartographer/Beacon) para esta máquina - mucho más caro
 y complejo de lo que esta impresora necesita.
 
+**D. Actualización: el usuario YA TIENE un ESP32** (no es una compra hipotética).
+Sigue sin tener sentido como MCU de Klipper (ver nota de ESP32 vs Pico más abajo), pero
+como dispositivo independiente (fuera de Klipper) SÍ podría cumplir una función real -
+falta definir CUÁL. Candidatos razonables, ninguno decidido todavía: un relé/enchufe
+inteligente para cortar la alimentación general de la impresora a distancia (útil
+justamente para los cortes que a veces hacen falta por los problemas de USB), una
+cámara de monitoreo simple, o un sensor ambiental del cuarto. **Esto queda pendiente
+de que el usuario diga qué modelo exacto de ESP32 tiene y qué función le interesa** -
+no se diseña un circuito a ciegas sin saber el modelo real ni los periféricos
+disponibles.
+
+### Ventiladores de 3 vs 4 cables - investigado 2026-10-26
+
+Confirmado (fuente:
+[DC Fan Wiring Guide 2/3/4-wire](https://www.yccfan.com/articledetail/601.html),
+[4-Pin PWM Fan Guide](https://www.proventofan.com/4-pin-pwm-fan/)):
+
+- **3 cables** = alimentación (2) + señal de tacómetro/RPM (1, solo lectura). La
+  velocidad se controla variando el VOLTAJE/PWM de la propia alimentación - es
+  exactamente lo que hace una salida tipo `[heater_fan]`/`[fan_generic]` de Klipper
+  con un MOSFET, como PB0. **Compatible directo con PB0 tal como está preparado.**
+  Si además se quiere leer las RPM, Klipper soporta un `tachometer_pin` separado
+  (necesitaría otro pin lógico, no el mismo MOSFET).
+- **4 cables** = alimentación continua (2, SIN PWM) + tacómetro (1) + señal de
+  control PWM dedicada (1, nivel lógico, no de potencia). **PB0 (un MOSFET de
+  potencia) NO es el pin correcto para esta 4ta señal** - esa señal necesita un pin
+  GPIO lógico normal (no conmutado), separado de la alimentación del fan, que
+  recibiría los 12/24V fijos. Mezclar esto (poner la señal lógica de PWM a través de
+  un MOSFET de potencia) no va a funcionar bien ni es seguro sin verificar niveles.
+
+**Conclusión práctica:** PB0 tal como está preparado es apto para un fan de 2 o 3
+cables (control por voltaje/PWM de potencia, el modo estándar de Klipper). Si el
+usuario consigue un fan de 4 cables y quiere aprovechar su entrada PWM dedicada, hay
+que identificar un pin lógico libre distinto de PB0 para esa señal - no investigado
+todavía porque depende de qué fan se compre.
+
 ## Comandos útiles
 
 ```bash
