@@ -310,3 +310,45 @@ más ni menos. No se declara la cama nivelada ni la sonda reemplazada por ningú
   inestabilidad de USB primero - instalar protección contra corte de luz mientras la
   causa real de las interrupciones (USB) sigue sin resolver es priorizar el síntoma
   secundario.
+
+## 2026-10-26 (sesión física interactiva) — 3 cortes en vivo, lección sobre G92 con cola pendiente, optimización de la netbook
+
+Sesión con el usuario presente, siguiendo el procedimiento de calibración de extrusión
+preparado. Resultados reales, no inferidos:
+
+- Inspección mecánica visual (correas, poleas, boquilla, ventiladores, cableado):
+  confirmación general "todo OK" del usuario - registrado como pase general, no
+  punto por punto (el usuario pidió acelerar).
+- Identificados 2 ventiladores: uno siempre encendido (hotend/disipador, cableado
+  directo, correcto que esté siempre prendido) y uno controlado por Klipper (pieza,
+  responde a M106/M107, confirmado).
+- **T0, primera medición (válida):** 100mm pedidos → 102mm reales con rotation_distance
+  original (7.474). Factor 1.02 → nuevo valor calculado: 7.623.
+- **3 cortes de conexión durante la sesión de calibración**, de 2 tipos distintos:
+  uno "Lost communication with MCU" (USB real) tras 13 minutos de silencio sin que
+  nadie lo notara durante la inspección mecánica; uno "Timer too close" (sobrecarga de
+  CPU del host, no la placa); otro más "Lost communication" durante la segunda
+  verificación.
+- **Lección técnica importante, con evidencia real:** tras el segundo corte, `G92 E0`
+  seguido de un nuevo `G1 E100` NO garantiza un test limpio - un movimiento anterior
+  que quedó en la cola de la placa (por la interrupción) puede ejecutarse más tarde,
+  sumándose al nuevo. Confirmado con `toolhead.position` mostrando E=200 en vez de 100,
+  y el usuario reportando "entró mucho más, se perdió la marca". **Las mediciones 2 y 3
+  de T0 quedan invalidadas por esto** - solo la primera (102mm) es dato limpio.
+  Corrección de proceso: tras cualquier interrupción a mitad de un movimiento, hace
+  falta `firmware_restart` completo (no solo reconectar) antes de confiar en la
+  próxima medición.
+- **T1: no se llegó a medir** - la sesión se desvió a diagnosticar los cortes.
+- **Causa raíz real de los cortes "Timer too close" encontrada con evidencia directa:**
+  `ps aux --sort=-%cpu` mostró Klipper usando ~0.7% de CPU, mientras Claude Desktop
+  (~50% entre sus procesos) y Firefox (~25%) corrían a la vez en esta netbook de 2
+  núcleos. Decisión del usuario: optimizar la netbook a fondo por software (sin
+  hardware nuevo), ya que la van a seguir usando siempre así.
+- Preparadas e instalables con un solo script (`tools/instalar_optimizaciones_netbook.sh`,
+  necesita sudo, no corrido todavía): prioridad de Moonraker (Klipper ya la tenía),
+  governor de CPU en "performance", swappiness bajado de 60 a 10, regla udev de
+  autosuspend (ya preparada antes). Documentado como reversible en
+  `tools/README_optimizaciones.md`.
+- **La optimización de mayor impacto no necesita instalar nada:** cerrar Claude
+  Desktop y Firefox mientras se calibra o imprime - en una netbook de 2 núcleos, no
+  hay margen para correr eso Y mantener la comunicación en tiempo real con la placa.
