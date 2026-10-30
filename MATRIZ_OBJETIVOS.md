@@ -35,6 +35,7 @@ documentos de detalle - para el "por qué" y las fuentes completas, ir a esos ar
 |---|---|---|---|---|---|
 | Pull-up faltante en switch de Z | ✅ | Test diferencial confirmado (switch solo, open/TRIGGERED correctos en ambos estados) | — | `endstop_pin` sin `^` - corregido | Cumplido |
 | Homing X/Y/Z funcional | ✅ | G28 completo + 5 ciclos repetidos, direcciones/endstops coherentes, sin shutdown (2026-10-25, post-reflasheo) | — | — | Cumplido para lo que se puede validar sin papel |
+| Precisión de movimiento X/Y/Z (regla real) | ✅ | **2026-10-26:** X 50mm pedidos→50mm medidos; Y 50→50mm; Z 20→20mm. Los 3 ejes, 0% de error, medidos con regla real por el usuario | — | — | Cumplido |
 | Repetibilidad FÍSICA de altura Z (con papel) | 👤 | Software validado (5/5 ciclos limpios); altura real NUNCA medida con papel en esta ronda de pruebas | Usuario presente con papel | — | **NO cumplido** - falta la medición física |
 | Sonda "3D Touch" diagnosticada | ✅ | 4 pruebas independientes (sonda sola, switch sano de control, reset, pin_up/down) - sensor con falla de hardware confirmada | — | Circuito de sensor muerto, servo/pin funcionan bien | Cumplido (diagnóstico, no repuesto) |
 | Nivelación manual (4 esquinas + centro) | ✅ | Confirmada por el usuario en fase temprana del proyecto | — | — | Cumplido, sigue siendo el método real |
@@ -62,7 +63,7 @@ documentos de detalle - para el "por qué" y las fuentes completas, ir a esos ar
 | Velocidad/aceleración | 🔵 | Estrategia documentada con números reales de fábrica (máx 80mm/s, recomendado 50mm/s) vs techo de firmware (250mm/s, no se tocan) | Impresión de prueba estable (requiere USB resuelto primero) | — | Pendiente, bloqueado por estabilidad USB |
 | Caudal volumétrico máximo | 🔵 | No medido todavía | Impresión de prueba | — | Pendiente |
 | Input Shaper | ⬜ | Arquitectura preparada (`input-shaper-future.cfg`), sin acelerómetro | Comprar Pico + ADXL345 | — | Pendiente de hardware |
-| Ventilador de piezas | 🟢 | `FAN_TEST` corrido de verdad, vuelve a 0 al final | Confirmación visual del usuario de que la hélice gira | — | Falta confirmación visual |
+| Ventilador de piezas | ✅ | `FAN_TEST` corrido de verdad; **2026-10-26: usuario confirmó visualmente que gira al 100%** | — | — | Cumplido |
 | Segundo ventilador (PB0) | 🟡 | Pin confirmado por código fuente de Marlin, config preparada y comentada | Usuario verifica voltaje del terminal "HE1" antes de conectar nada | — | Pendiente de verificación eléctrica |
 
 ## 6. Hardware futuro (todo preparado, nada activado sin hardware real)

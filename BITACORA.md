@@ -377,3 +377,19 @@ lógica) antes de pedir la medición - sin cortes de conexión en el medio.
   diagnosticar el tool activo en el futuro - confirmar por comportamiento físico.
 - Hotend apagado al terminar (`TURN_OFF_HEATERS`). Sesión de calibración de extrusión
   del día: **cerrada con éxito, ambos extrusores con datos reales y guardados.**
+
+## 2026-10-26 (continuación) — Fan de pieza confirmado, repetibilidad de X/Y/Z con regla real
+
+- **Ventilador de pieza (el "de adelante", controlado por Klipper):** confirmado que
+  gira al 100% cuando se comanda por software. El otro (hotend, "de la derecha") ya
+  estaba confirmado como siempre encendido, cableado directo.
+- **Repetibilidad de movimiento con regla real, los 3 ejes, cada uno confirmado
+  exacto (0% de error):**
+  - X: 50mm pedidos → 50mm medidos.
+  - Y: 50mm pedidos → 50mm medidos (necesitó 2 reintentos - el usuario no llegaba a
+    medir a tiempo; se resolvió pidiendo que la regla quede puesta ANTES de mover, no
+    después).
+  - Z: 20mm pedidos → 20mm medidos.
+- Conclusión: el sistema de movimiento (X/Y/Z) es preciso y repetible con medición
+  física real, no solo por reporte de software. Sin defectos mecánicos encontrados en
+  esta prueba.
