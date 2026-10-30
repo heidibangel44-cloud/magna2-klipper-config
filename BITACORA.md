@@ -352,3 +352,28 @@ preparado. Resultados reales, no inferidos:
 - **La optimización de mayor impacto no necesita instalar nada:** cerrar Claude
   Desktop y Firefox mientras se calibra o imprime - en una netbook de 2 núcleos, no
   hay margen para correr eso Y mantener la comunicación en tiempo real con la placa.
+
+## 2026-10-26 (continuación) — Calibración de extrusión T0/T1 completada con éxito
+
+Retomada tras instalar las optimizaciones de la netbook. Esta vez, cada movimiento se
+confirmó con `M400` (bloqueante, confirma ejecución física real, no solo la posición
+lógica) antes de pedir la medición - sin cortes de conexión en el medio.
+
+- **T0: recalibrado y guardado.** 100mm pedidos → 102mm reales con el valor viejo
+  (7.474, de 2026-08-11) → nuevo valor 7.474×1.02=**7.623** → verificado con una
+  segunda pasada limpia: 100mm pedidos → **100mm exactos** (0% de error). Guardado en
+  `printer.cfg`, confirmado que sobrevive a un restart (`ESTADO_CALIBRACION` lo
+  reporta). Commit `2023b9d`.
+- **T1: confirmado correcto, SIN cambios.** 100mm pedidos → **100mm exactos** con el
+  valor ya existente (7.848, de 2026-08-11) - 0% de error de entrada, no necesitaba
+  corrección.
+- **Validación cruzada final:** vuelto a T0 después de calibrar T1, extrusión de
+  prueba de 20mm - el usuario confirmó que sigue andando normal, sin trabas ni saltos.
+  Calibrar T1 no afectó a T0.
+- **Nota de arquitectura aprendida en el proceso:** `toolhead.extruder` en esta config
+  siempre reporta `"extruder"`, nunca `"extruder1"` - no es un indicador válido de cuál
+  tool (T0/T1) está activo en este setup (extruder1 es un `extruder_stepper`
+  sincronizado, no un extruder de toolhead real para Klipper). No usar ese campo para
+  diagnosticar el tool activo en el futuro - confirmar por comportamiento físico.
+- Hotend apagado al terminar (`TURN_OFF_HEATERS`). Sesión de calibración de extrusión
+  del día: **cerrada con éxito, ambos extrusores con datos reales y guardados.**
