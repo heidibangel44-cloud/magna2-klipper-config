@@ -396,3 +396,12 @@ lógica) antes de pedir la medición - sin cortes de conexión en el medio.
 - **Nivelación manual completa realizada:** cama y hotend a 60°C/210°C, las 4 esquinas
   ajustadas con papel y después verificado en el centro - usuario confirmó parejo.
   Calentadores apagados al terminar.
+- **Optimizaciones de la netbook instaladas y verificadas (segundo intento, el primero
+  se quedó a mitad de camino en el prompt de sudo):** Moonraker con `Nice=-5`
+  confirmado corriendo así (`ps` lo muestra), governor de CPU en `performance`,
+  swappiness en 10, regla udev de autosuspend instalada. Los 4 cambios confirmados
+  presentes en el sistema, no solo "comando enviado".
+- **Usuario revisó visualmente la zona del conector USB en la placa** - sin reportar
+  nada anormal. Queda pendiente confirmar con tiempo si esto + las optimizaciones de
+  CPU reducen la frecuencia real de desconexiones (no se declara resuelto todavía,
+  monitoreo continúa).
