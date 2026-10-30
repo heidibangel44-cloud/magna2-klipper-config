@@ -45,7 +45,7 @@ documentos de detalle - para el "por qué" y las fuentes completas, ir a esos ar
 
 | Objetivo | Estado | Evidencia | Dependencias | Defecto encontrado | Criterio de aceptación |
 |---|---|---|---|---|---|
-| `rotation_distance` T0/T1 | 🟡→👤 | Medido una vez (7.474/7.848) con método manual (marca + resto), 2 pasadas cada uno | Usuario presente con filamento y hotend caliente | Método válido pero no con el protocolo riguroso que se acaba de preparar | El usuario pidió una recalibración más rigurosa - procedimiento nuevo preparado, no ejecutado |
+| `rotation_distance` T0/T1 | ✅ | **2026-10-26, con M400 bloqueante:** T0 recalibrado 7.474→7.623 (0% error verificado, 2 pasadas); T1 confirmado correcto sin cambio (7.848, 0% error de entrada). Validación cruzada: T0 sigue andando normal después de tocar T1 | — | T0 tenía 2% de error real, corregido | Cumplido |
 | Lógica de macros T0/T1 (retracción/sync/purga) | ✅ | Auditoría línea por línea confirmó orden correcto, sin riesgo de movimiento simultáneo | — | — | Cumplido |
 | `_FORM_TIP` (anti-atasco de splitter) | 🟡 | Macro cargada y validada por sintaxis; distancia de 80mm con advertencia explícita (150mm de la referencia es de OTRO splitter) | Prueba con hotend caliente | — | NO conectado al flujo activo - correcto, a propósito |
 | `LOAD_FILAMENT_T0/T1`, `UNLOAD_FILAMENT_T0/T1` | 🟢 | Ambas ramas de error (herramienta incorrecta, hotend frío) probadas con ejecución real | Prueba con hotend caliente para la ruta exitosa | — | Falta la prueba en caliente |
