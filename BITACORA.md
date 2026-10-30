@@ -393,3 +393,6 @@ lógica) antes de pedir la medición - sin cortes de conexión en el medio.
 - Conclusión: el sistema de movimiento (X/Y/Z) es preciso y repetible con medición
   física real, no solo por reporte de software. Sin defectos mecánicos encontrados en
   esta prueba.
+- **Nivelación manual completa realizada:** cama y hotend a 60°C/210°C, las 4 esquinas
+  ajustadas con papel y después verificado en el centro - usuario confirmó parejo.
+  Calentadores apagados al terminar.
