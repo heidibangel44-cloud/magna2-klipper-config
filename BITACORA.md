@@ -405,3 +405,87 @@ lógica) antes de pedir la medición - sin cortes de conexión en el medio.
   nada anormal. Queda pendiente confirmar con tiempo si esto + las optimizaciones de
   CPU reducen la frecuencia real de desconexiones (no se declara resuelto todavía,
   monitoreo continúa).
+
+## 2026-10-30 — Investigación a fondo de la inconsistencia de altura Z: dos hipótesis externas, verificadas contra el código real (no contra lo que decían los textos)
+
+El usuario abrió otra sesión de Claude (otro cliente, con acceso a los repos de
+GitHub) para conseguir una segunda opinión sobre el problema de altura Z que viene de
+antes. Esa sesión mandó dos análisis técnicos por separado. Ninguno de los dos se
+aplicó a ciegas - cada afirmación concreta se verificó contra el código fuente real
+(el de Marlin descargado del repo, y el de Klipper ya instalado en esta máquina) antes
+de tocar nada.
+
+### Hipótesis 1: velocidad de Z excede el límite real de Marlin — VERIFICADA pero DESCARTADA como causa
+
+- **Confirmado exacto** contra `Configuration.h`/`Configuration_adv.h` reales de
+  `DevelopmentHellbot/Magna-Dual`: el bloque que SÍ compila (`#if 1 //Ender 3
+  settings`) tiene `DEFAULT_MAX_FEEDRATE {500, 500, 5, 25}` - Z real = 5mm/s, no
+  20mm/s. También `Z_HOME_BUMP_MM 2` confirmado.
+- Varios movimientos de Z en nuestro `printer.cfg` corrían 2-3x más rápido que eso
+  (`F600`=10mm/s, `F900`=15mm/s, `max_z_velocity: 25`).
+- **Aplicado:** `max_z_velocity` 25→5, `z_hop_speed` 10→5, `_NIVELAR_IR` y
+  `ALTURA_SEGURA` F600→F300, `PAUSE` F900→F300, `position_min` -2→0 (sin margen extra
+  que agrave un choque), agregado `homing_retract_dist: 2` (antes default de Klipper
+  de 5mm). Reiniciado Klipper, confirmado en vivo con `configfile` que los 7 valores
+  nuevos están realmente cargados, sin errores de arranque.
+- **Prueba física:** 4 ciclos de home seguidos (segundos entre uno y otro, sin tocar
+  tornillos), yendo al centro con las velocidades ya corregidas. El usuario confirmó:
+  **"Seguimos teniendo el mismo problema."**
+- **Conclusión:** la teoría de velocidad queda **descartada como causa real** de la
+  inconsistencia. Los cambios se mantienen (igualan a Marlin, no hacen daño, es
+  correcto que Z no exceda su límite mecánico real) pero no son la solución.
+
+### Hipótesis 2: `idle_timeout` borra el estado de homing y puede dejar caer el Z por gravedad — CÓDIGO CONFIRMADO, pendiente de prueba física
+
+Auditado línea por línea el código real de Klipper instalado en esta máquina (no
+copiado de internet, el de `/home/facundo/klipper/klippy/extras/` y `kinematics/`):
+
+- `stepper_enable.py`, `motor_off()`: apaga todos los motores Y llama
+  `toolhead.get_kinematics().clear_homing_state("xyz")` - confirmado línea 116-120.
+- `M18`/`M84` llaman directo a `motor_off()` - confirmado línea 82-83, 127-129.
+- `idle_timeout.py`: si `[idle_timeout]` no declara su propio `gcode:`, usa el
+  default de Klipper, que termina en `M84` desnudo - confirmado línea 8-13. Nuestro
+  `printer.cfg` (línea 658-659) tiene `timeout: 900` **sin** `gcode:` propio → cae en
+  este default.
+- `cartesian.py`, `clear_homing_state()`: invalida los límites del eje (no mueve nada,
+  solo marca "no confiar en esta posición") - confirmado línea 73-76.
+- `safe_z_home.py` completo revisado: cuando Z no está homeado, el próximo G28 hace
+  un salto hacia ARRIBA *antes* de mover X/Y, así que la descripción original de "la
+  boquilla arrastra/choca durante el movimiento a XY" no es exacta tal como está el
+  código. El riesgo real es más simple y anterior a eso: si este Z no es autoblocante,
+  puede ceder por gravedad **durante el rato sin energía**, que es justo cuando el
+  usuario puede estar con el pico casi tocando la cama ajustando un tornillo de
+  nivelación - no durante el home en sí, que siempre re-referencia contra el switch
+  físico real.
+- Confirmado en el Marlin real de Hellbot: `DISABLE_X/Y/Z/E` todos `false` - el
+  firmware original JAMÁS apaga un motor por inactividad. Coincide con lo que el
+  usuario reportó ("con el firmware original siempre funcionó").
+- **Importante:** los 4 ciclos rápidos de la Hipótesis 1 (segundos entre uno y otro)
+  NO pudieron haber activado esto - nunca pasaron los 900s. Por eso "sigue el mismo
+  problema" en esa prueba no descarta ni confirma esta hipótesis nueva; son cosas
+  distintas.
+- **Fix preparado, NO aplicado todavía:**
+  ```
+  [idle_timeout]
+  timeout: 900
+  gcode:
+      TURN_OFF_HEATERS
+      SET_STEPPER_ENABLE STEPPER=stepper_x ENABLE=0
+      SET_STEPPER_ENABLE STEPPER=stepper_y ENABLE=0
+  ```
+  Verificado contra el código que `SET_STEPPER_ENABLE` (a diferencia de `M84`) NO
+  llama `clear_homing_state` - deja Z con torque siempre puesto (nunca cede por
+  gravedad) y sigue ahorrando corriente en X/Y.
+- **Prueba diagnóstica en curso al cierre de esta entrada:** G28 + centro a las
+  20:56, impresora dejada quieta sin tocar nada durante 16+ minutos, para chequear
+  con papel si la altura cambia sola antes de aplicar el fix. Resultado pendiente de
+  la próxima entrada - **no declarar esto resuelto hasta tener ese resultado.**
+
+### Pendiente sin cambios (requiere hotend caliente)
+
+El bug de macros T0/T1 (`toolhead.extruder` nunca es `"extruder1"` en esta
+arquitectura, posible guardia que nunca dispara) sigue sin verificar en vivo - el
+hotend estaba frío (27°C) en el momento de revisar esto. Queda para la próxima
+sesión con calor y supervisión, usando el campo `motion_queue` de
+`extruder_stepper extruder1` como indicador confiable (confirmado esta sesión que
+`toolhead.extruder` no sirve para esto).
