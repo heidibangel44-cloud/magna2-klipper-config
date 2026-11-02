@@ -405,3 +405,59 @@ lógica) antes de pedir la medición - sin cortes de conexión en el medio.
   nada anormal. Queda pendiente confirmar con tiempo si esto + las optimizaciones de
   CPU reducen la frecuencia real de desconexiones (no se declara resuelto todavía,
   monitoreo continúa).
+
+## 2026-11-02 — Nivelación con switch, config final auditada, primera carga real de filamento T0/T1
+
+Día largo, con el usuario presente todo el tiempo. Resumen de lo que quedó confirmado y hecho:
+
+### Nivelación con método del switch (más preciso que la hoja)
+- Confirmado con `QUERY_ENDSTOPS` (no un cálculo, el estado real del switch): X, Y y Z
+  disparan su fin de carrera exactamente en la posición lógica 0, de forma consistente
+  en repetidos ciclos de home - **no hay pérdida de pasos ni "memoria" de Klipper
+  fallando**, descartado con evidencia dura.
+- Mapeado el mismo chequeo en los 4 tornillos de nivelación: 3 de 4 esquinas no
+  tocaban el switch en Z=0 (cama desnivelada, no un bug). Ajustados los tornillos con
+  este método objetivo. Usuario confirmó después con la hoja que quedó parejo en las
+  4 esquinas.
+
+### Config final (printer.cfg) - auditoría completa
+Reemplazada la base por la config real de Yumi-Lab para esta misma impresora (Wanhao
+D12/230 Dual, MKS Robin Nano V1.3), conservando SOLO los valores medidos de esta
+unidad (calibración de T0/T1, PID, pull-up de Z). Cambios grandes de hoy:
+- `max_velocity` 250→500, `max_accel` 2500→**500** (no 2500 - el Marlin real de
+  fábrica, Configuration.h que compila, nunca validó más de 500mm/s² en este
+  mecanismo; más aceleración de la que el fabricante probó no mejora precisión, la
+  empeora con vibración).
+- `max_z_velocity` se mantiene en 25 (ya por encima del límite real de Marlin de
+  5mm/s, usando el valor que Yumi-Lab prueba en producción).
+- Agregado `[gcode_macro M84]` que nunca apaga `stepper_z` por software (ni acá ni
+  por `idle_timeout`) - elimina de raíz el riesgo de que el Z pierda fuerza y ceda por
+  gravedad, sin necesidad de confirmar si el eje es autoblocante.
+- Agregado `VERIFICAR_HOMING`: corre el chequeo de switch real en los 3 ejes a pedido,
+  sin tener que escribir gcode a mano.
+
+### Primera carga real de filamento (PLA, T0 rojo y T1 amarillo)
+- Confirmado con calor real (210°C) que el **cambio de herramienta T0↔T1 funciona
+  correctamente en ambas direcciones** (verificado con `motion_queue`, no solo con la
+  respuesta del macro) - cierra el bug que quedaba pendiente desde hace semanas.
+- **Hallazgo real e importante:** la distancia de retracción de 80mm en los macros
+  T0/T1 (copiada sin verificar de otra config) puede expulsar el filamento del
+  engranaje del extrusor en esta máquina si no se recarga por completo entre pruebas -
+  confirmado dos veces con filamento real. Se mantiene en 80mm (el usuario confirmó
+  que es la distancia real necesaria para el splitter) pero queda documentado el
+  riesgo: siempre partir de una carga completa y verificada, no de un estado a medias.
+- `_FORM_TIP` (moldeado de punta anti-hilo) probado con calor real, funcionó técnicamente
+  pero **descartado a pedido del usuario** - nunca tuvo problemas de atasco sin él, no
+  hace falta. Reemplazado por 6 macros nuevos de jog manual (`FILAMENTO_ADENTRO_LENTO/
+  MEDIO/RAPIDO`, `FILAMENTO_AFUERA_LENTO/MEDIO/RAPIDO`, 10mm por toque, bloqueados si
+  el hotend no está caliente).
+
+### Pendiente, no bloquea imprimir
+- Pressure Advance: sin calibrar con torre real (necesita el laminador).
+- Retracción por firmware (3mm): valor de partida, sin afinar con torre real.
+- Estabilidad de USB: sigue siendo el riesgo real para una impresión larga - varias
+  desconexiones hoy, la mayoría explicadas por apagados manuales del usuario, pero el
+  historial de semanas sin explicar sigue sin resolverse.
+- Configuración del laminador (OrcaSlicer), conexión WiFi a la netbook, y cámara de la
+  netbook para ver la impresora: pendiente, se va a hacer con otra sesión de Claude en
+  la PC del laminador, usando un prompt que se preparará aparte.
