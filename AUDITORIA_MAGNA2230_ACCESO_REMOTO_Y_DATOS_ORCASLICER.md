@@ -297,10 +297,26 @@ los recursos que ya cuidamos para Klipper en esta netbook de 2 núcleos.
   IP local, usando la IP/nombre de Tailscale en vez de la IP de la LAN - pendiente de
   confirmar con una prueba real.
 
-**Estado real al momento de este informe: INSTALACIÓN PENDIENTE.** Ver sección 10,
-"Tareas pendientes" - necesita que el usuario corra 1-2 comandos con `sudo` y
-complete el login de Tailscale (abre una URL en el navegador, requiere su cuenta) -
-**no puedo completar esto yo, es una autenticación que solo el usuario puede hacer.**
+**Estado real: INSTALADO, AUTENTICADO Y CONFIRMADO FUNCIONANDO.** El usuario instaló
+Tailscale, completó el login (cuenta `heidibangel44@...`) y autorizó el dispositivo.
+Datos reales:
+
+- IP de Tailscale: `100.64.6.13`
+- Nombre MagicDNS (fijo, no cambia aunque cambie la IP local): `facundo-cx215xx-cx212xx.tailf92613.ts.net`
+- MagicDNS: habilitado automáticamente por Tailscale.
+
+**Encontrado y corregido un problema real:** al probar, Moonraker devolvía `401
+Unauthorized` por la IP de Tailscale - el rango `100.64.0.0/10` (el que usa
+Tailscale para direccionar, llamado CGNAT) no estaba en la lista de
+`trusted_clients` de `moonraker.conf`. Se agregó ese rango y el dominio
+`*.tailf92613.ts.net` a `cors_domains`. Confirmado después de reiniciar Moonraker:
+responde 200 tanto por la IP de Tailscale como por el nombre MagicDNS.
+
+**Cámara por Tailscale:** el puerto 8080 (crowsnest) solo escucha en `localhost`
+por diseño - no responde directo desde otra máquina, ni siquiera por Tailscale. Pero
+accediendo por el proxy de Mainsail (`/webcam/?action=stream` en el puerto 80, el
+mismo camino que usa la interfaz normalmente) sí responde 200 por Tailscale -
+confirmado.
 
 ## 9. Pruebas realizadas y resultados
 
@@ -312,9 +328,12 @@ complete el login de Tailscale (abre una URL en el navegador, requiere su cuenta
 | Conexión local (LAN) | ✅ confirmada, `192.168.18.196` y `.local` resuelven y responden |
 | Calidad de comunicación MCU | ✅ 9 retransmisiones / 8145 secuencias, 0 inválidas - saludable |
 | Cámara (stream local) | ✅ responde HTTP 200 en `localhost:8080/?action=snapshot`, registrada en Moonraker |
-| Conexión Tailscale | ⬜ pendiente - no instalado todavía al momento de este corte del informe |
-| Acceso remoto real (otra red) | ⬜ pendiente de Tailscale |
-| Resolución de MagicDNS | ⬜ pendiente de Tailscale |
+| Conexión Tailscale | ✅ instalado, autenticado, confirmado activo |
+| Acceso remoto real - Moonraker por Tailscale | ✅ responde 200 (después de corregir `trusted_clients`) |
+| Acceso remoto real - Mainsail por Tailscale | ✅ responde 200 |
+| Acceso remoto real - Cámara por Tailscale (vía proxy de Mainsail) | ✅ responde 200 |
+| Resolución de MagicDNS | ✅ confirmado, el nombre fijo funciona igual que la IP |
+| Acceso remoto desde una red externa real (no solo esta LAN) | ⬜ no se pudo probar desde esta netbook - necesita un segundo dispositivo (el celular del usuario, con Tailscale instalado y usando datos móviles, no el WiFi de casa) |
 
 No se calentó el hotend, no se movieron motores ni se inició ninguna impresión
 durante esta auditoría (las pruebas de calor/filamento ya se habían hecho antes, en
@@ -322,7 +341,20 @@ la sesión de calibración previa, no en esta auditoría).
 
 ## 10. Tareas pendientes (necesitan al usuario)
 
-1. **Completar instalación de Tailscale:** correr `curl -fsSL https://tailscale.com/install.sh | sh` y después `sudo tailscale up` (este último va a imprimir una URL - hay que abrirla en un navegador y loguearse con una cuenta, Google/Microsoft/GitHub funcionan). Avisame cuando lo hagas y termino de configurar MagicDNS y verifico todo.
-2. **Pressure Advance, retracción fina, flow rate real:** necesitan imprimir algo y mirarlo - se hacen con el laminador, siguiendo el documento `DATOS_PARA_ORCASLICER.md`.
-3. **Confirmar tipos reales de termistor** (extrusor y cama) - están puestos por defecto del tipo más común para esta placa, no verificados físicamente contra el componente real.
-4. **Decidir sobre el historial de desconexiones USB de semanas anteriores** - sigue sin una causa 100% confirmada; recomendación: primera impresión real corta (20-30 min) antes de confiar en algo largo.
+1. **Confirmar el acceso remoto real desde afuera:** instalar la app de Tailscale en
+   el celular (Play Store/App Store), loguearse con la misma cuenta
+   (`heidibangel44@...`), apagar el WiFi de casa (usar datos móviles) y abrir
+   `http://facundo-cx215xx-cx212xx.tailf92613.ts.net` en el navegador del celular.
+   Esa es la única prueba que falta para decir "funciona de verdad desde afuera" -
+   yo ya confirmé que los servicios responden bien por Tailscale, pero no tengo un
+   segundo dispositivo fuera de esta red para probarlo end-to-end.
+2. **Para que la PC del laminador también tenga acceso remoto:** instalar Tailscale
+   ahí también, con la misma cuenta - ver `DATOS_PARA_ORCASLICER.md`.
+3. **Pressure Advance, retracción fina, flow rate real:** necesitan imprimir algo y
+   mirarlo - se hacen con el laminador, siguiendo el documento `DATOS_PARA_ORCASLICER.md`.
+4. **Confirmar tipos reales de termistor** (extrusor y cama) - están puestos por
+   defecto del tipo más común para esta placa, no verificados físicamente contra el
+   componente real.
+5. **Decidir sobre el historial de desconexiones USB de semanas anteriores** - sigue
+   sin una causa 100% confirmada; recomendación: primera impresión real corta
+   (20-30 min) antes de confiar en algo largo.

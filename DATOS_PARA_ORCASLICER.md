@@ -100,19 +100,23 @@ para generar G-code, solo para diagnóstico.
 - Puerto Mainsail: `80`
 - URL para conectar OrcaSlicer en la misma red: `http://192.168.18.196:7125` (o con
   el nombre `.local`)
-- Dirección Tailscale / nombre MagicDNS: **todavía no configurado** - pendiente,
-  se va a actualizar este documento cuando esté listo.
-- URL remota (fuera de la red): **todavía no disponible**, depende de lo anterior.
-- Estado real probado hoy: conexión local confirmada funcionando (Klipper, Moonraker
-  y Mainsail activos y respondiendo).
+- Dirección Tailscale: `100.64.6.13`
+- Nombre MagicDNS (fijo, no cambia): `facundo-cx215xx-cx212xx.tailf92613.ts.net`
+- URL remota para OrcaSlicer (fuera de la red local, con Tailscale activo en esta PC
+  también): `http://facundo-cx215xx-cx212xx.tailf92613.ts.net:7125`
+- Estado real probado hoy: confirmado funcionando - Moonraker, Mainsail y la cámara
+  responden 200 por la IP de Tailscale y por el nombre MagicDNS. Para que esta PC
+  del laminador también pueda usarlo, necesita tener Tailscale instalado y logueado
+  con la misma cuenta.
 
 ## G. Cámara
 
 - Software: crowsnest (oficial de mainsail-crew).
 - URL local del stream: `http://192.168.18.196:8080/?action=stream` (también
   integrada directamente en la interfaz de Mainsail).
-- URL de acceso remoto: pendiente de Tailscale.
-- Estado: confirmado funcionando en la red local hoy.
+- URL de acceso remoto (vía Tailscale, pasando por el proxy de Mainsail, no el
+  puerto 8080 directo): `http://facundo-cx215xx-cx212xx.tailf92613.ts.net/webcam/?action=stream`
+- Estado: confirmado funcionando, tanto en la red local como por Tailscale, hoy.
 
 ## H. Pendientes
 
@@ -120,9 +124,11 @@ para generar G-code, solo para diagnóstico.
   retracción fina, flow rate real - las tres se calibran imprimiendo una pieza de
   prueba real y mirando el resultado. Usar los asistentes integrados de OrcaSlicer
   para esto (Calibración → Pressure Advance / Retracción / Flow Rate).
-- **Necesita que el usuario haga algo:** completar el login de Tailscale (abre una
-  URL, requiere cuenta) para tener acceso remoto fuera de la red local - sin eso,
-  OrcaSlicer solo puede conectarse estando en la misma red WiFi.
+- **Para usar la URL remota de Tailscale desde esta PC:** instalar Tailscale en esta
+  PC también (app oficial de Windows) y loguearse con la MISMA cuenta que se usó en
+  la netbook. Sin eso, desde esta PC solo se puede usar la IP local
+  (`192.168.18.196`), que únicamente funciona si las dos máquinas están en la misma
+  red WiFi.
 - **Primera impresión de prueba:** algo chico (cubo de 20mm, un solo color),
   15-20 minutos, antes de intentar algo largo - hay un historial de desconexiones
   USB sin causa 100% confirmada, mejor confirmar estabilidad con algo corto primero.
