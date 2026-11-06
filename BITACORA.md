@@ -501,3 +501,44 @@ de configuración, se agotaron todas las combinaciones documentadas. Revertido:
 desde 2026-08-18), `[bltouch]` queda comentado (no borrado) con todo lo probado, para
 no repetir esta investigación si se consigue una sonda de reemplazo. Confirmado con
 `VERIFICAR_HOMING` que los 3 ejes volvieron a funcionar perfecto tras revertir.
+
+## 2026-11-06 — Revisión final de velocidad/calidad con el hardware actual (sin sensores nuevos)
+
+Usuario pidió la mejor configuración posible de Klipper para velocidad y calidad,
+usando SOLO el hardware ya instalado (sin BLTouch, sin acelerómetro, sin sensor de
+filamento por movimiento), apoyándose en que los 3 ejes ya están mecánicamente a
+cero juego y con correas nuevas.
+
+**Revisión completa de `printer.cfg`, parámetro por parámetro, resultado:**
+
+- `max_velocity`/`max_accel` (500/500): ya estaban en el techo real de fábrica
+  (Marlin `Configuration.h` real de esta máquina). Un eje sin juego y con correas
+  nuevas no cambia ese techo - es un límite del firmware/motores, no de la mecánica
+  que se acaba de ajustar. No se tocó. Ir más rápido de forma real (sin perder
+  calidad) necesita Input Shaper, que necesita acelerómetro - hardware explícitamente
+  fuera de alcance de este pedido.
+- `max_z_velocity`/`max_z_accel`, `homing_speed` (todos los ejes), velocidades de
+  `safe_z_home`: ya en los valores probados de la base real de Yumi-Lab para esta
+  misma placa/impresora. Sin cambios.
+- `max_extrude_cross_section`: **corregido de 100mm² a 5mm²**. Estaba puesto en un
+  valor tan alto que no protegía nada (una línea real de impresión usa 0.08-0.18mm²,
+  la purga de `PRINT_START` usa ~0.28mm²) - este parámetro existe justo para frenar un
+  error real (el laminador pidiendo de más para un movimiento XY dado) antes de que
+  trabe el engranaje contra filamento. 5mm² es el valor estándar de la comunidad
+  Klipper para una boquilla de 0.4mm: no afecta ninguna línea o purga real (quedan
+  20-60x por debajo) pero sí es una protección real.
+- `square_corner_velocity` (5.0, default de Klipper): no se subió. Es un candidato
+  real para una prueba A/B visual (imprimir el mismo cubo con 5.0 y, por ejemplo, 8-10,
+  y comparar las esquinas a ojo) ahora que no hay juego mecánico que la distorsione,
+  pero subirlo a ciegas sin mirar el resultado real sería inventar un número, no
+  configurar con base real - queda pendiente como experimento, no como cambio.
+
+**Conclusión honesta:** con el hardware actual, el techo de velocidad por software ya
+estaba bien puesto desde antes (no había margen sin explotar ahí). Las DOS palancas
+reales que todavía faltan para mejorar velocidad Y calidad al mismo tiempo son
+Pressure Advance (0.0, sin calibrar) y la retracción por firmware (3mm/40mm/s,
+valores de partida) - ninguna de las dos se puede "configurar mejor" por análisis,
+las dos necesitan una pieza de prueba real impresa (torre de PA, torre de
+retracción) para medir el resultado real en esta boquilla/splitter compartido. Es el
+mismo criterio que se vino aplicando en todo este proyecto: no subir números sin
+evidencia real que los respalde.
