@@ -461,3 +461,43 @@ unidad (calibración de T0/T1, PID, pull-up de Z). Cambios grandes de hoy:
 - Configuración del laminador (OrcaSlicer), conexión WiFi a la netbook, y cámara de la
   netbook para ver la impresora: pendiente, se va a hacer con otra sesión de Claude en
   la PC del laminador, usando un prompt que se preparará aparte.
+
+## 2026-11-05 — Sonda "3D Touch" NUEVA probada a fondo: también sin funcionar
+
+Usuario recalibró y aceitó mecánicamente los 3 ejes (X/Y/Z) - sin juego, confirmado
+después con `VERIFICAR_HOMING` que el homing sigue perfecto en los 3 ejes.
+
+Compró una sonda "3D Touch" nueva (la vieja ya tenía falla de hardware confirmada,
+ver entrada 2026-08-18) para probar nivelación automática. Conectada al mismo
+conector de 5 pines (PA11 señal / PA8 control), que comparte pin con el switch
+mecánico de Z - no pueden estar los dos conectados a la vez.
+
+**Investigación exhaustiva, con evidencia completa, de que esta sonda NUEVA tampoco
+funciona:**
+- Confirmado por el usuario que el servo SÍ mueve el pin físicamente (deploy/stow
+  reales, y el pin responde a la presión manual retrayéndose).
+- El circuito sensor (el que debería avisar "me tocaron") nunca mandó una señal real,
+  probado con `QUERY_ENDSTOPS` y `QUERY_PROBE` en TODAS estas condiciones: pin arriba,
+  pin abajo, empujado a mano y sostenido, después de un reset, después de reconectar
+  el cable del conector: siempre `TRIGGERED` fijo, sin una sola variación.
+- Se probaron las 3 combinaciones de configuración documentadas para este síntoma en
+  clones BLTouch/3D Touch (fuentes: klipper3d.org/BLTouch.html, Klipper Discourse,
+  GitHub issues #5080 y #4966): `set_output_mode: 5V` (sin cambio), 
+  `pin_up_reports_not_triggered: False` (cambió el error de "failed to raise probe" a
+  "probe triggered prior to movement" - progreso real, pero no resolvió el problema
+  de fondo), y `probe_with_touch_mode: True` + modo touch (mismo error final, sin
+  cambio).
+- Confirmado que PA11/PA8 es el pin correcto (coincide con `generic-mks-robin-nano-v1.cfg`
+  oficial de Klipper para el endstop de Z, y con la config real de Yumi-Lab para esta
+  misma impresora con BLTouch) - no es un error de pin equivocado.
+- Un intento real de `G28` (con el usuario mirando de cerca, listo para cortar
+  corriente) se frenó solo por los propios chequeos de seguridad de Klipper, sin
+  llegar a mover el cabezal de forma riesgosa - el sistema de seguridad funcionó como
+  corresponde en ambos intentos.
+
+**Conclusión:** circuito sensor de esta unidad también sin funcionar - no es un tema
+de configuración, se agotaron todas las combinaciones documentadas. Revertido:
+`[stepper_z]` vuelve a usar el switch mecánico (`^!PA11`, pull-up confirmado necesario
+desde 2026-08-18), `[bltouch]` queda comentado (no borrado) con todo lo probado, para
+no repetir esta investigación si se consigue una sonda de reemplazo. Confirmado con
+`VERIFICAR_HOMING` que los 3 ejes volvieron a funcionar perfecto tras revertir.
